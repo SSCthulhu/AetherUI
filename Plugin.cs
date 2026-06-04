@@ -8,6 +8,7 @@ namespace FFXIVHudPlugin;
 public sealed unsafe class Plugin : IDalamudPlugin
 {
     private static readonly TimeSpan TransitionHideGrace = TimeSpan.FromMilliseconds(450);
+    private static readonly TimeSpan DrawErrorLogThrottle = TimeSpan.FromSeconds(5);
 
     public string Name => "FFXIV Hud Reimagined";
 
@@ -16,12 +17,20 @@ public sealed unsafe class Plugin : IDalamudPlugin
     private readonly IClientState clientState;
     private readonly ICondition condition;
     private readonly IObjectTable objectTable;
+    private readonly IPluginLog pluginLog;
     private readonly HudConfiguration configuration;
     private readonly HudStateProvider stateProvider;
     private readonly HudWindow hudWindow;
     private readonly ConfigWindow configWindow;
     private DateTime hideHudUntilUtc = DateTime.MinValue;
+    private DateTime nextDrawErrorLogUtc = DateTime.MinValue;
     private bool nativeUiHiddenApplied;
+    private bool layoutMigrationInitialized;
+    private bool nativeNorthLockCaptured;
+    private bool nativeNorthLockApplied;
+    private bool nativeNorthLockOriginal;
+    private int suppressedDrawErrors;
+    private bool isDisposed;
     private static readonly string[] NativeUiAddonNamesToHide =
     {
         "_ActionBar",
@@ -62,6 +71,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
         this.clientState = clientState;
         this.condition = condition;
         this.objectTable = objectTable;
+        this.pluginLog = pluginLog;
         this.configuration = pluginInterface.GetPluginConfig() as HudConfiguration ?? new HudConfiguration();
         this.configuration.Initialize(pluginInterface);
 
@@ -86,7 +96,14 @@ public sealed unsafe class Plugin : IDalamudPlugin
 
     public void Dispose()
     {
-        NativeMinimapVisibility.Apply(false);
+        if (this.isDisposed)
+        {
+            return;
+        }
+
+        this.isDisposed = true;
+
+        this.RestoreNativeUiState();
 
         this.pluginInterface.UiBuilder.Draw -= this.DrawUi;
         this.pluginInterface.UiBuilder.OpenConfigUi -= this.ToggleConfig;
@@ -96,17 +113,18 @@ public sealed unsafe class Plugin : IDalamudPlugin
 
     private void DrawUi()
     {
-        this.ApplyNativeUiVisibility();
-        this.ApplyMinimapNorthLockWhenCustom();
+        this.ExecuteDrawSection("layout migration init", this.ApplyLayoutMigrationIfNeeded);
+        this.ExecuteDrawSection("native UI visibility", this.ApplyNativeUiVisibility);
+        this.ExecuteDrawSection("native minimap north-lock sync", this.ApplyMinimapNorthLockWhenCustom);
 
         var configOpen = this.configWindow.IsOpen;
         if (this.ShouldDrawHud())
         {
-            this.stateProvider.Update();
-            this.hudWindow.Draw(configOpen);
+            this.ExecuteDrawSection("state update", this.stateProvider.Update);
+            this.ExecuteDrawSection("hud draw", () => this.hudWindow.Draw(configOpen));
         }
 
-        this.configWindow.Draw();
+        this.ExecuteDrawSection("config draw", this.configWindow.Draw);
     }
 
     private bool ShouldDrawHud()
@@ -170,6 +188,8 @@ public sealed unsafe class Plugin : IDalamudPlugin
                 this.nativeUiHiddenApplied = false;
             }
 
+            this.RestoreNativeNorthLockState();
+
             return;
         }
 
@@ -198,10 +218,13 @@ public sealed unsafe class Plugin : IDalamudPlugin
             !this.configuration.Enabled ||
             !this.configuration.MinimapEnabled)
         {
+            this.RestoreNativeNorthLockState();
             return;
         }
 
+        this.CaptureNativeNorthLockStateIfNeeded();
         MinimapNativeNorthLock.Apply(this.configuration.MinimapNorthLocked);
+        this.nativeNorthLockApplied = true;
     }
 
     private void SetNativeUiVisibility(bool visible)
@@ -223,5 +246,97 @@ public sealed unsafe class Plugin : IDalamudPlugin
 
             addon->IsVisible = visible;
         }
+    }
+
+    private void ApplyLayoutMigrationIfNeeded()
+    {
+        if (this.layoutMigrationInitialized)
+        {
+            return;
+        }
+
+        var viewport = Dalamud.Bindings.ImGui.ImGui.GetMainViewport();
+        if (viewport.Size.X <= 0f || viewport.Size.Y <= 0f)
+        {
+            return;
+        }
+
+        HudLayoutMigration.MigrateLayoutOffsetsIfNeeded(this.configuration, viewport.Pos, viewport.Size);
+        this.layoutMigrationInitialized = true;
+    }
+
+    private void CaptureNativeNorthLockStateIfNeeded()
+    {
+        if (this.nativeNorthLockCaptured)
+        {
+            return;
+        }
+
+        if (!MinimapNativeNorthLock.TryGetCurrent(out var currentNorthLock))
+        {
+            return;
+        }
+
+        this.nativeNorthLockOriginal = currentNorthLock;
+        this.nativeNorthLockCaptured = true;
+    }
+
+    private void RestoreNativeNorthLockState()
+    {
+        if (!this.nativeNorthLockApplied)
+        {
+            return;
+        }
+
+        if (this.nativeNorthLockCaptured)
+        {
+            MinimapNativeNorthLock.Apply(this.nativeNorthLockOriginal);
+        }
+
+        this.nativeNorthLockApplied = false;
+        this.nativeNorthLockCaptured = false;
+        this.nativeNorthLockOriginal = false;
+    }
+
+    private void RestoreNativeUiState()
+    {
+        this.ExecuteDrawSection("native UI restore", () =>
+        {
+            this.SetNativeUiVisibility(true);
+            NativeMinimapVisibility.SetVisible(true);
+            this.nativeUiHiddenApplied = false;
+            this.RestoreNativeNorthLockState();
+        });
+    }
+
+    private void ExecuteDrawSection(string sectionName, Action drawAction)
+    {
+        try
+        {
+            drawAction();
+        }
+        catch (Exception ex)
+        {
+            this.LogDrawFailure(sectionName, ex);
+        }
+    }
+
+    private void LogDrawFailure(string sectionName, Exception ex)
+    {
+        var now = DateTime.UtcNow;
+        if (now >= this.nextDrawErrorLogUtc)
+        {
+            if (this.suppressedDrawErrors > 0)
+            {
+                this.pluginLog.Warning($"Suppressed {this.suppressedDrawErrors} draw exceptions while throttled.");
+                this.suppressedDrawErrors = 0;
+            }
+
+            this.pluginLog.Warning(ex, $"Draw section '{sectionName}' failed; rendering will continue.");
+            this.nextDrawErrorLogUtc = now + DrawErrorLogThrottle;
+            return;
+        }
+
+        this.suppressedDrawErrors++;
     }
 }

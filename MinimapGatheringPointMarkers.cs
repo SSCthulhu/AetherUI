@@ -28,6 +28,7 @@ internal static class MinimapGatheringPointMarkers
         float markerIconSize,
         MinimapMarkerIconCache iconCache,
         List<MinimapIconMarker> markers,
+        HashSet<(int X, int Z)> seenCells,
         int maxMarkers)
     {
         if (maxMarkers <= 0 || markers.Count >= maxMarkers)
@@ -51,10 +52,12 @@ internal static class MinimapGatheringPointMarkers
                 markerIconSize,
                 iconCache,
                 markers,
+                seenCells,
                 maxMarkers);
         }
-        catch
+        catch (Exception ex)
         {
+            MinimapFailureLogger.LogCollectorFailure("gathering_points.collect", ex);
             return 0;
         }
     }
@@ -73,6 +76,7 @@ internal static class MinimapGatheringPointMarkers
         float markerIconSize,
         MinimapMarkerIconCache iconCache,
         List<MinimapIconMarker> markers,
+        HashSet<(int X, int Z)> seenCells,
         int maxMarkers)
     {
         var gatheringSheet = dataManager.GetExcelSheet<GatheringPoint>();
@@ -82,7 +86,7 @@ internal static class MinimapGatheringPointMarkers
         }
 
         var collected = 0;
-        var seenCells = new HashSet<(int X, int Z)>();
+        seenCells.Clear();
         var maxWorldDistance = visibleRangeYalms + 8f;
         var maxWorldDistanceSq = maxWorldDistance * maxWorldDistance;
 

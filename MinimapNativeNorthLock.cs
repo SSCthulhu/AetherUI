@@ -8,6 +8,25 @@ namespace FFXIVHudPlugin;
 /// </summary>
 internal static class MinimapNativeNorthLock
 {
+    public static unsafe bool TryGetCurrent(out bool northLocked)
+    {
+        northLocked = false;
+        var stage = AtkStage.Instance();
+        if (stage is null)
+        {
+            return false;
+        }
+
+        var addon = (AddonNaviMap*)stage->RaptureAtkUnitManager->GetAddonByName(NativeMinimapVisibility.AddonName, 1);
+        if (addon is null)
+        {
+            return false;
+        }
+
+        northLocked = addon->NaviMap.NorthLockedUp;
+        return true;
+    }
+
     public static unsafe void Apply(bool northLocked)
     {
         var stage = AtkStage.Instance();

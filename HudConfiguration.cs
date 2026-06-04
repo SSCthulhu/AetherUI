@@ -113,11 +113,17 @@ public sealed class HudConfiguration : IPluginConfiguration
     public void Initialize(IDalamudPluginInterface pluginInterface)
     {
         this.pluginInterface = pluginInterface;
-        this.ApplyMigrations();
+        var migrationChanged = this.ApplyMigrations();
+        var normalizationChanged = this.NormalizeAfterLoad();
+        if (migrationChanged || normalizationChanged)
+        {
+            this.Save();
+        }
     }
 
-    private void ApplyMigrations()
+    private bool ApplyMigrations()
     {
+        var didChange = false;
         if (this.Version < 2)
         {
             // Force a visibly larger baseline to ensure existing users immediately see the scale change.
@@ -126,7 +132,7 @@ public sealed class HudConfiguration : IPluginConfiguration
             this.BuffRowYOffset = -138f;
             this.LimitBreakYOffset = 230f;
             this.Version = 2;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 3)
@@ -136,7 +142,7 @@ public sealed class HudConfiguration : IPluginConfiguration
             this.BuffRowYOffset *= 0.5f;
             this.LimitBreakYOffset *= 0.5f;
             this.Version = 3;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 4)
@@ -144,7 +150,7 @@ public sealed class HudConfiguration : IPluginConfiguration
             // Buff/debuff rows are now anchored above hotbars; use 0 as neutral offset.
             this.BuffRowYOffset = 0f;
             this.Version = 4;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 5)
@@ -153,13 +159,13 @@ public sealed class HudConfiguration : IPluginConfiguration
             this.BuffIconSize = Math.Max(this.BuffIconSize, 40f);
             this.BuffIconGap = Math.Max(this.BuffIconGap, 8f);
             this.Version = 5;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 6)
         {
             this.Version = 6;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 7)
@@ -168,7 +174,7 @@ public sealed class HudConfiguration : IPluginConfiguration
             this.HudOffsetX = 0f;
             this.HudOffsetY = 0f;
             this.Version = 7;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 8)
@@ -178,7 +184,7 @@ public sealed class HudConfiguration : IPluginConfiguration
             this.ColorMpFill = 0xFFE45DB2;
             this.ColorMpBack = 0x552A1424;
             this.Version = 8;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 9)
@@ -186,7 +192,7 @@ public sealed class HudConfiguration : IPluginConfiguration
             // Correct accent to true gold in ABGR packing (not blue-tinted).
             this.ColorAccent = 0xFF37AFD4;
             this.Version = 9;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 10)
@@ -195,7 +201,7 @@ public sealed class HudConfiguration : IPluginConfiguration
             this.ColorHpFill = 0xFF4AB34A;
             this.ColorMpFill = 0xFFA755E5;
             this.Version = 10;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 11)
@@ -204,27 +210,27 @@ public sealed class HudConfiguration : IPluginConfiguration
             this.ShowSlidecastMarker = true;
             this.SlidecastOffsetSeconds = Math.Clamp(this.SlidecastOffsetSeconds, 0.05f, 1.20f);
             this.Version = 11;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 12)
         {
             this.Version = 12;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 14)
         {
             // Drag/drop assignment replaced with picker-based slot assignment.
             this.Version = 14;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 17)
         {
             // Removed plugin-managed keybind overrides and formatting controls.
             this.Version = 17;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 18)
@@ -232,7 +238,7 @@ public sealed class HudConfiguration : IPluginConfiguration
             // Persist discovered mission-only squadron order commands across reloads.
             this.CapturedSquadronCommands ??= new();
             this.Version = 18;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 19)
@@ -240,7 +246,7 @@ public sealed class HudConfiguration : IPluginConfiguration
             // Click-through, native UI replacement, and debug overlay are always on; presets consolidated to Default.
             this.Preset = HudPreset.Default;
             this.Version = 19;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 20)
@@ -248,7 +254,7 @@ public sealed class HudConfiguration : IPluginConfiguration
             this.LeftHotbar2Actions ??= new();
             this.RightHotbar2Actions ??= new();
             this.Version = 20;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 21)
@@ -258,7 +264,7 @@ public sealed class HudConfiguration : IPluginConfiguration
             this.Hotbar2OffsetX = 0f;
             this.Hotbar2OffsetY = 0f;
             this.Version = 21;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 22)
@@ -266,13 +272,13 @@ public sealed class HudConfiguration : IPluginConfiguration
             this.Hotbar1Enabled = true;
             this.Hotbar2Enabled = true;
             this.Version = 22;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 23)
         {
             this.Version = 23;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 24)
@@ -281,7 +287,7 @@ public sealed class HudConfiguration : IPluginConfiguration
             this.ExpandedPresetSnapshot ??= HudLayoutPresetSnapshot.CaptureFrom(this);
             this.DefaultPresetSnapshot ??= HudLayoutPresetSnapshot.CreateFactoryDefault();
             this.Version = 24;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 25)
@@ -289,7 +295,7 @@ public sealed class HudConfiguration : IPluginConfiguration
             // Default preset is now a fixed tuned layout; refresh stored snapshot to match.
             this.DefaultPresetSnapshot = HudLayoutPresetSnapshot.CreatePluginDefaultLayout();
             this.Version = 25;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 26)
@@ -297,14 +303,14 @@ public sealed class HudConfiguration : IPluginConfiguration
             this.CustomLayouts ??= new();
             this.ExpandedPresetSnapshot = HudLayoutPresetSnapshot.CreatePluginExpandedLayout();
             this.Version = 26;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 27)
         {
             this.ExpandedPresetSnapshot = HudLayoutPresetSnapshot.CreatePluginExpandedLayout();
             this.Version = 27;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 28)
@@ -328,33 +334,33 @@ public sealed class HudConfiguration : IPluginConfiguration
             }
 
             this.Version = 28;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 29)
         {
             this.ExpandedPresetSnapshot = HudLayoutPresetSnapshot.CreatePluginExpandedLayout();
             this.Version = 29;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 30)
         {
             this.UnlockLayout = false;
             this.Version = 30;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 31)
         {
             this.Version = 31;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 32)
         {
             this.Version = 32;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 33)
@@ -370,7 +376,7 @@ public sealed class HudConfiguration : IPluginConfiguration
             this.DefaultPresetSnapshot = HudLayoutPresetSnapshot.CreatePluginDefaultLayout();
             this.ExpandedPresetSnapshot = HudLayoutPresetSnapshot.CreatePluginExpandedLayout();
             this.Version = 33;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 34)
@@ -378,14 +384,14 @@ public sealed class HudConfiguration : IPluginConfiguration
             this.BuffTimerPlacement = StatusTimerPlacement.Bottom;
             this.DebuffTimerPlacement = StatusTimerPlacement.Bottom;
             this.Version = 34;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 35)
         {
             this.ArpgPresetSnapshot = HudLayoutPresetSnapshot.CreatePluginArpgLayout();
             this.Version = 35;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 36)
@@ -393,7 +399,7 @@ public sealed class HudConfiguration : IPluginConfiguration
             this.BuffMaxIconsPerRow = StatusLaneLayout.ClampMaxIconsPerRow(this.BuffMaxIconsPerRow);
             this.DebuffMaxIconsPerRow = StatusLaneLayout.ClampMaxIconsPerRow(this.DebuffMaxIconsPerRow);
             this.Version = 36;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 37)
@@ -401,7 +407,7 @@ public sealed class HudConfiguration : IPluginConfiguration
             this.BuffGrowDirection = StatusLaneLayout.MigrateLegacyGrowDirection((int)this.BuffGrowDirection);
             this.DebuffGrowDirection = StatusLaneLayout.MigrateLegacyGrowDirection((int)this.DebuffGrowDirection);
             this.Version = 37;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 38)
@@ -409,21 +415,21 @@ public sealed class HudConfiguration : IPluginConfiguration
             this.Hotbar1SlotsPerRow = HotbarGridLayout.DefaultSlotsPerRow;
             this.Hotbar2SlotsPerRow = HotbarGridLayout.DefaultSlotsPerRow;
             this.Version = 38;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 39)
         {
             this.LayoutUsesScreenCenterOrigin = false;
             this.Version = 39;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 40)
         {
             this.LayoutUsesUnscaledPixelOffsets = false;
             this.Version = 40;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 41)
@@ -435,7 +441,7 @@ public sealed class HudConfiguration : IPluginConfiguration
             this.Hotbar2SlotSize = legacySlotSize;
             this.Hotbar2SlotGap = legacySlotGap;
             this.Version = 41;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 42)
@@ -445,14 +451,14 @@ public sealed class HudConfiguration : IPluginConfiguration
             this.MinimapOffsetY = MinimapLayout.DefaultOffsetY;
             this.MinimapVisibleRangeYalms = MinimapLayout.DefaultVisibleRangeYalms;
             this.Version = 42;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 43)
         {
             this.MinimapNorthLocked = false;
             this.Version = 43;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 44)
@@ -460,42 +466,42 @@ public sealed class HudConfiguration : IPluginConfiguration
             this.MinimapFacingConeSizeScale = MinimapLayout.DefaultFacingConeSizeScale;
             this.MinimapFacingConeOpacity = MinimapLayout.DefaultFacingConeOpacity;
             this.Version = 44;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 45)
         {
             this.MinimapBorderThickness = MinimapLayout.DefaultBorderThickness;
             this.Version = 45;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 46)
         {
             this.MinimapBorderColor = MinimapLayout.DefaultBorderColor;
             this.Version = 46;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 47)
         {
             this.MinimapBorderColor = HudColorConversion.MigrateLegacyArgbToImGuiColor(this.MinimapBorderColor);
             this.Version = 47;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 48)
         {
             this.MinimapShowNativeMarkers = true;
             this.Version = 48;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 49)
         {
             this.MinimapShowDiagnostics = false;
             this.Version = 49;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 51)
@@ -506,7 +512,7 @@ public sealed class HudConfiguration : IPluginConfiguration
             }
 
             this.Version = 51;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 52)
@@ -522,33 +528,257 @@ public sealed class HudConfiguration : IPluginConfiguration
             }
 
             this.Version = 52;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 53)
         {
             this.Version = 53;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 54)
         {
             this.Version = 54;
-            this.Save();
+            didChange = true;
         }
 
         if (this.Version < 55)
         {
             this.MinimapShowCardinalDirections = false;
             this.Version = 55;
-            this.Save();
+            didChange = true;
+        }
+        return didChange;
+    }
+
+    private bool NormalizeAfterLoad()
+    {
+        var changed = false;
+
+        if (this.LeftHotbarActions is null)
+        {
+            this.LeftHotbarActions = new();
+            changed = true;
         }
 
-        this.CapturedSquadronCommands ??= new();
-        this.LeftHotbar2Actions ??= new();
-        this.RightHotbar2Actions ??= new();
-        this.CustomLayouts ??= new();
+        if (this.RightHotbarActions is null)
+        {
+            this.RightHotbarActions = new();
+            changed = true;
+        }
+
+        if (this.LeftHotbar2Actions is null)
+        {
+            this.LeftHotbar2Actions = new();
+            changed = true;
+        }
+
+        if (this.RightHotbar2Actions is null)
+        {
+            this.RightHotbar2Actions = new();
+            changed = true;
+        }
+
+        if (this.CapturedSquadronCommands is null)
+        {
+            this.CapturedSquadronCommands = new();
+            changed = true;
+        }
+
+        if (this.CustomLayouts is null)
+        {
+            this.CustomLayouts = new();
+            changed = true;
+        }
+
+        this.SelectedCustomLayoutName ??= string.Empty;
+
+        if (!Enum.IsDefined(typeof(HudPreset), this.Preset))
+        {
+            this.Preset = HudPreset.Default;
+            changed = true;
+        }
+
+        var normalizedGlobalScale = ClampFinite(this.GlobalScale, 2.25f, 0.5f, 4.0f);
+        if (!NearlyEqual(normalizedGlobalScale, this.GlobalScale))
+        {
+            this.GlobalScale = normalizedGlobalScale;
+            changed = true;
+        }
+
+        var normalizedGlobalOpacity = ClampFinite(this.GlobalOpacity, 1.0f, 0.2f, 1.0f);
+        if (!NearlyEqual(normalizedGlobalOpacity, this.GlobalOpacity))
+        {
+            this.GlobalOpacity = normalizedGlobalOpacity;
+            changed = true;
+        }
+
+        this.OrbRadius = NormalizeFloatField(this.OrbRadius, 56f, 32f, 160f, ref changed);
+        this.OrbThickness = NormalizeFloatField(this.OrbThickness, 10f, 4f, 28f, ref changed);
+        this.MpRingThicknessScale = NormalizeFloatField(this.MpRingThicknessScale, 1.20f, 0.2f, 1.2f, ref changed);
+        this.SlidecastOffsetSeconds = NormalizeFloatField(this.SlidecastOffsetSeconds, 0.50f, 0.05f, 1.20f, ref changed);
+
+        this.Hotbar1SlotSize = NormalizeFloatField(this.Hotbar1SlotSize, HotbarLayout.DefaultSlotSize, HotbarLayout.MinSlotSize, HotbarLayout.MaxSlotSize, ref changed);
+        this.Hotbar1SlotGap = NormalizeFloatField(this.Hotbar1SlotGap, HotbarLayout.DefaultSlotGap, HotbarLayout.MinSlotGap, HotbarLayout.MaxSlotGap, ref changed);
+        this.Hotbar2SlotSize = NormalizeFloatField(this.Hotbar2SlotSize, HotbarLayout.DefaultSlotSize, HotbarLayout.MinSlotSize, HotbarLayout.MaxSlotSize, ref changed);
+        this.Hotbar2SlotGap = NormalizeFloatField(this.Hotbar2SlotGap, HotbarLayout.DefaultSlotGap, HotbarLayout.MinSlotGap, HotbarLayout.MaxSlotGap, ref changed);
+        this.HotbarSlotSize = NormalizeFloatField(this.HotbarSlotSize, HotbarLayout.DefaultSlotSize, HotbarLayout.MinSlotSize, HotbarLayout.MaxSlotSize, ref changed);
+        this.HotbarSlotGap = NormalizeFloatField(this.HotbarSlotGap, HotbarLayout.DefaultSlotGap, HotbarLayout.MinSlotGap, HotbarLayout.MaxSlotGap, ref changed);
+
+        this.Hotbar1VisibleSlotCount = NormalizeIntField(this.Hotbar1VisibleSlotCount, HotbarSlotVisibility.ClampTotal(this.Hotbar1VisibleSlotCount), ref changed);
+        this.Hotbar2VisibleSlotCount = NormalizeIntField(this.Hotbar2VisibleSlotCount, HotbarSlotVisibility.ClampTotal(this.Hotbar2VisibleSlotCount), ref changed);
+        this.Hotbar1SlotsPerRow = NormalizeIntField(this.Hotbar1SlotsPerRow, HotbarGridLayout.ClampSlotsPerRow(this.Hotbar1SlotsPerRow), ref changed);
+        this.Hotbar2SlotsPerRow = NormalizeIntField(this.Hotbar2SlotsPerRow, HotbarGridLayout.ClampSlotsPerRow(this.Hotbar2SlotsPerRow), ref changed);
+
+        this.BuffIconSize = NormalizeFloatField(this.BuffIconSize, 78.3f, 18f, 120f, ref changed);
+        this.BuffIconGap = NormalizeFloatField(this.BuffIconGap, 8f, 0f, 18f, ref changed);
+        this.DebuffIconSize = NormalizeFloatField(this.DebuffIconSize, 78.3f, 18f, 120f, ref changed);
+        this.DebuffIconGap = NormalizeFloatField(this.DebuffIconGap, 8f, 0f, 18f, ref changed);
+        this.BuffMaxIconsPerRow = NormalizeIntField(this.BuffMaxIconsPerRow, StatusLaneLayout.ClampMaxIconsPerRow(this.BuffMaxIconsPerRow), ref changed);
+        this.DebuffMaxIconsPerRow = NormalizeIntField(this.DebuffMaxIconsPerRow, StatusLaneLayout.ClampMaxIconsPerRow(this.DebuffMaxIconsPerRow), ref changed);
+
+        if (!Enum.IsDefined(typeof(StatusLaneGrowDirection), this.BuffGrowDirection))
+        {
+            this.BuffGrowDirection = StatusLaneGrowDirection.RightToLeftUp;
+            changed = true;
+        }
+
+        if (!Enum.IsDefined(typeof(StatusLaneGrowDirection), this.DebuffGrowDirection))
+        {
+            this.DebuffGrowDirection = StatusLaneGrowDirection.LeftToRightUp;
+            changed = true;
+        }
+
+        if (!Enum.IsDefined(typeof(StatusTimerPlacement), this.BuffTimerPlacement))
+        {
+            this.BuffTimerPlacement = StatusTimerPlacement.Bottom;
+            changed = true;
+        }
+
+        if (!Enum.IsDefined(typeof(StatusTimerPlacement), this.DebuffTimerPlacement))
+        {
+            this.DebuffTimerPlacement = StatusTimerPlacement.Bottom;
+            changed = true;
+        }
+
+        this.MinimapSize = NormalizeFloatField(this.MinimapSize, MinimapLayout.DefaultSize, MinimapLayout.MinSize, MinimapLayout.MaxSize, ref changed);
+        this.MinimapVisibleRangeYalms = NormalizeFloatField(this.MinimapVisibleRangeYalms, MinimapLayout.DefaultVisibleRangeYalms, MinimapLayout.MinVisibleRangeYalms, MinimapLayout.MaxVisibleRangeYalms, ref changed);
+        this.MinimapFacingConeSizeScale = NormalizeFloatField(this.MinimapFacingConeSizeScale, MinimapLayout.DefaultFacingConeSizeScale, MinimapLayout.MinFacingConeSizeScale, MinimapLayout.MaxFacingConeSizeScale, ref changed);
+        this.MinimapFacingConeOpacity = NormalizeFloatField(this.MinimapFacingConeOpacity, MinimapLayout.DefaultFacingConeOpacity, MinimapLayout.MinFacingConeOpacity, MinimapLayout.MaxFacingConeOpacity, ref changed);
+        this.MinimapBorderThickness = NormalizeFloatField(this.MinimapBorderThickness, MinimapLayout.DefaultBorderThickness, MinimapLayout.MinBorderThickness, MinimapLayout.MaxBorderThickness, ref changed);
+        this.MinimapMarkerIconSize = NormalizeFloatField(this.MinimapMarkerIconSize, MinimapLayout.DefaultMarkerIconSize, MinimapLayout.MinMarkerIconSize, MinimapLayout.MaxMarkerIconSize, ref changed);
+        this.MinimapPlayerPinSize = NormalizeFloatField(this.MinimapPlayerPinSize, MinimapLayout.DefaultPlayerPinSize, MinimapLayout.MinPlayerPinSize, MinimapLayout.MaxPlayerPinSize, ref changed);
+
+        this.MinimapOffsetX = NormalizeFiniteFloat(this.MinimapOffsetX, MinimapLayout.DefaultOffsetX, ref changed);
+        this.MinimapOffsetY = NormalizeFiniteFloat(this.MinimapOffsetY, MinimapLayout.DefaultOffsetY, ref changed);
+        this.HudOffsetX = NormalizeFiniteFloat(this.HudOffsetX, 0f, ref changed);
+        this.HudOffsetY = NormalizeFiniteFloat(this.HudOffsetY, 0f, ref changed);
+        this.OrbOffsetX = NormalizeFiniteFloat(this.OrbOffsetX, 0f, ref changed);
+        this.OrbOffsetY = NormalizeFiniteFloat(this.OrbOffsetY, 0f, ref changed);
+        this.Hotbar1OffsetX = NormalizeFiniteFloat(this.Hotbar1OffsetX, 0f, ref changed);
+        this.Hotbar1OffsetY = NormalizeFiniteFloat(this.Hotbar1OffsetY, -5f, ref changed);
+        this.Hotbar2OffsetX = NormalizeFiniteFloat(this.Hotbar2OffsetX, 0f, ref changed);
+        this.Hotbar2OffsetY = NormalizeFiniteFloat(this.Hotbar2OffsetY, 0f, ref changed);
+        this.BuffOffsetX = NormalizeFiniteFloat(this.BuffOffsetX, 0f, ref changed);
+        this.BuffOffsetY = NormalizeFiniteFloat(this.BuffOffsetY, 8.6f, ref changed);
+        this.DebuffOffsetX = NormalizeFiniteFloat(this.DebuffOffsetX, 0f, ref changed);
+        this.DebuffOffsetY = NormalizeFiniteFloat(this.DebuffOffsetY, 8.6f, ref changed);
+        this.BuffRowOffsetX = NormalizeFiniteFloat(this.BuffRowOffsetX, 0f, ref changed);
+        this.BuffRowYOffset = NormalizeFiniteFloat(this.BuffRowYOffset, 8.6f, ref changed);
+        this.HotbarVerticalOffset = NormalizeFiniteFloat(this.HotbarVerticalOffset, -14f, ref changed);
+        this.LimitBreakOffsetX = NormalizeFiniteFloat(this.LimitBreakOffsetX, -150f, ref changed);
+        this.LimitBreakYOffset = NormalizeFiniteFloat(this.LimitBreakYOffset, 172f, ref changed);
+
+        for (var i = this.CapturedSquadronCommands.Count - 1; i >= 0; i--)
+        {
+            var command = this.CapturedSquadronCommands[i];
+            if (command is null)
+            {
+                this.CapturedSquadronCommands.RemoveAt(i);
+                changed = true;
+                continue;
+            }
+
+            if (command.TargetKey is null)
+            {
+                command.TargetKey = string.Empty;
+                changed = true;
+            }
+
+            if (command.DisplayName is null)
+            {
+                command.DisplayName = string.Empty;
+                changed = true;
+            }
+        }
+
+        for (var i = this.CustomLayouts.Count - 1; i >= 0; i--)
+        {
+            var layout = this.CustomLayouts[i];
+            if (layout is null)
+            {
+                this.CustomLayouts.RemoveAt(i);
+                changed = true;
+                continue;
+            }
+
+            if (layout.Name is null)
+            {
+                layout.Name = string.Empty;
+                changed = true;
+            }
+
+            if (layout.Layout is null)
+            {
+                layout.Layout = new HudLayoutPresetSnapshot();
+                changed = true;
+            }
+        }
+
+        return changed;
     }
+
+    private static float NormalizeFiniteFloat(float value, float fallback, ref bool changed)
+    {
+        var normalized = float.IsFinite(value) ? value : fallback;
+        if (!NearlyEqual(normalized, value))
+        {
+            changed = true;
+        }
+
+        return normalized;
+    }
+
+    private static float NormalizeFloatField(float value, float fallback, float min, float max, ref bool changed)
+    {
+        var normalized = ClampFinite(value, fallback, min, max);
+        if (!NearlyEqual(normalized, value))
+        {
+            changed = true;
+        }
+
+        return normalized;
+    }
+
+    private static int NormalizeIntField(int value, int normalized, ref bool changed)
+    {
+        if (value != normalized)
+        {
+            changed = true;
+        }
+
+        return normalized;
+    }
+
+    private static float ClampFinite(float value, float fallback, float min, float max)
+    {
+        var finiteValue = float.IsFinite(value) ? value : fallback;
+        return Math.Clamp(finiteValue, min, max);
+    }
+
+    private static bool NearlyEqual(float a, float b) =>
+        MathF.Abs(a - b) <= 0.0001f;
 
     public static void ApplyPreset(HudConfiguration config, HudPreset preset)
     {

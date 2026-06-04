@@ -8,7 +8,6 @@ public static class HudLayoutEngine
     public static HudLayoutRects Calculate(HudConfiguration config)
     {
         var viewport = ImGui.GetMainViewport();
-        HudLayoutMigration.MigrateLayoutOffsetsIfNeeded(config, viewport.Pos, viewport.Size);
 
         var screenCenter = HudLayoutOrigin.GetScreenCenter(viewport.Pos, viewport.Size);
         var hudOffset = new Vector2(config.HudOffsetX, config.HudOffsetY);

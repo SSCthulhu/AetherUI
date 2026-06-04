@@ -26,7 +26,8 @@ internal static class MinimapPartyBlips
         uint sizeFactor,
         float visibleRangeYalms,
         float blipRadius,
-        List<MinimapBlip> blips)
+        List<MinimapBlip> blips,
+        HashSet<uint> seenEntities)
     {
         try
         {
@@ -44,10 +45,12 @@ internal static class MinimapPartyBlips
                 sizeFactor,
                 visibleRangeYalms,
                 blipRadius,
-                blips);
+                blips,
+                seenEntities);
         }
-        catch
+        catch (Exception ex)
         {
+            MinimapFailureLogger.LogCollectorFailure("party_blips.collect", ex);
             return 0;
         }
     }
@@ -66,13 +69,14 @@ internal static class MinimapPartyBlips
         uint sizeFactor,
         float visibleRangeYalms,
         float blipRadius,
-        List<MinimapBlip> blips)
+        List<MinimapBlip> blips,
+        HashSet<uint> seenEntities)
     {
         var playerEntityId = player.EntityId;
         var playerObjectId = player.GameObjectId;
         var playerPosition = player.Position;
         var collected = 0;
-        var seenEntities = new HashSet<uint>();
+        seenEntities.Clear();
 
         for (var i = 0; i < partyList.Length; i++)
         {
@@ -105,7 +109,10 @@ internal static class MinimapPartyBlips
                 continue;
             }
 
-            seenEntities.Add(member.EntityId);
+            if (member.EntityId != 0)
+            {
+                seenEntities.Add(member.EntityId);
+            }
             collected++;
         }
 

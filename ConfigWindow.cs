@@ -40,38 +40,42 @@ public sealed class ConfigWindow
         var previousMouseDrawCursor = io.MouseDrawCursor;
         io.ConfigFlags |= ImGuiConfigFlags.NoMouseCursorChange;
         io.MouseDrawCursor = true;
-        if (!ImGui.Begin(
-                "FFXIV Hud Reimagined Config",
-                ref isOpen,
-                ImGuiWindowFlags.NoNavInputs))
+        try
         {
+            if (!ImGui.Begin(
+                    "FFXIV Hud Reimagined Config",
+                    ref isOpen,
+                    ImGuiWindowFlags.NoNavInputs))
+            {
+                this.IsOpen = isOpen;
+                ImGui.End();
+                return;
+            }
+
             this.IsOpen = isOpen;
+
+            ImGui.BeginChild("##ConfigNavSidebar", new Vector2(NavSidebarWidth, 0f), false);
+            this.DrawSettingsNavSidebar();
+            ImGui.EndChild();
+
+            ImGui.SameLine();
+
+            ImGui.BeginChild("##ConfigSettingsContent", new Vector2(0f, 0f), false);
+            this.DrawSelectedSettingsTab();
+            ImGui.EndChild();
+
+            if (ImGui.IsWindowHovered(ImGuiHoveredFlags.RootAndChildWindows))
+            {
+                ImGui.SetMouseCursor(ImGuiMouseCursor.Arrow);
+            }
+
+            ImGui.End();
+        }
+        finally
+        {
             io.ConfigFlags = previousConfigFlags;
             io.MouseDrawCursor = previousMouseDrawCursor;
-            ImGui.End();
-            return;
         }
-
-        this.IsOpen = isOpen;
-
-        ImGui.BeginChild("##ConfigNavSidebar", new Vector2(NavSidebarWidth, 0f), false);
-        this.DrawSettingsNavSidebar();
-        ImGui.EndChild();
-
-        ImGui.SameLine();
-
-        ImGui.BeginChild("##ConfigSettingsContent", new Vector2(0f, 0f), false);
-        this.DrawSelectedSettingsTab();
-        ImGui.EndChild();
-
-        if (ImGui.IsWindowHovered(ImGuiHoveredFlags.RootAndChildWindows))
-        {
-            ImGui.SetMouseCursor(ImGuiMouseCursor.Arrow);
-        }
-
-        ImGui.End();
-        io.ConfigFlags = previousConfigFlags;
-        io.MouseDrawCursor = previousMouseDrawCursor;
     }
 
     private void DrawSettingsNavSidebar()

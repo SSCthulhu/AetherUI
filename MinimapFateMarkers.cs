@@ -52,8 +52,9 @@ internal static class MinimapFateMarkers
                 fateAreas,
                 maxMarkers);
         }
-        catch
+        catch (Exception ex)
         {
+            MinimapFailureLogger.LogCollectorFailure("fate_markers.collect", ex);
             return 0;
         }
     }
