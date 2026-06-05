@@ -23,7 +23,6 @@ internal static class MinimapMapMarkers
         float markerIconSize,
         MinimapMarkerIconCache iconCache,
         List<MinimapIconMarker> markers,
-        HashSet<(uint IconId, int X, int Z)> seen,
         int maxMarkers)
     {
         if (maxMarkers <= 0 || markers.Count >= maxMarkers)
@@ -45,12 +44,10 @@ internal static class MinimapMapMarkers
                 markerIconSize,
                 iconCache,
                 markers,
-                seen,
                 maxMarkers);
         }
-        catch (Exception ex)
+        catch
         {
-            MinimapFailureLogger.LogCollectorFailure("map_markers.collect", ex);
             return 0;
         }
     }
@@ -67,7 +64,6 @@ internal static class MinimapMapMarkers
         float markerIconSize,
         MinimapMarkerIconCache iconCache,
         List<MinimapIconMarker> markers,
-        HashSet<(uint IconId, int X, int Z)> seen,
         int maxMarkers)
     {
         var agentMap = AgentMap.Instance();
@@ -82,7 +78,7 @@ internal static class MinimapMapMarkers
             return 0;
         }
 
-        seen.Clear();
+        var seen = new HashSet<(uint IconId, int X, int Z)>();
         var collected = 0;
 
         for (var i = 0; i < markerCount && markers.Count < maxMarkers; i++)

@@ -48,9 +48,8 @@ internal static class MinimapNaviMapMarkers
                 markers,
                 maxMarkers);
         }
-        catch (Exception ex)
+        catch
         {
-            MinimapFailureLogger.LogCollectorFailure("navi_map_markers.collect", ex);
             return 0;
         }
     }

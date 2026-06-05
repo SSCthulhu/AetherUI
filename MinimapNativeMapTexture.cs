@@ -36,9 +36,8 @@ internal static class MinimapNativeMapTexture
 
             return TryResolveImagePath(addon->MapImage, out texturePath);
         }
-        catch (Exception ex)
+        catch
         {
-            MinimapFailureLogger.LogCollectorFailure("native_map_texture.image_path", ex);
             return false;
         }
     }
@@ -50,9 +49,8 @@ internal static class MinimapNativeMapTexture
         {
             return TryGetTextureCore(textureProvider, out texture);
         }
-        catch (Exception ex)
+        catch
         {
-            MinimapFailureLogger.LogCollectorFailure("native_map_texture.texture", ex);
             return false;
         }
     }

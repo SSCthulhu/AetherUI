@@ -82,7 +82,6 @@ public sealed class HudStateProvider
         this.condition = condition;
         this.configuration = configuration;
         this.limitBreakTracker = new LimitBreakTracker();
-        MinimapFailureLogger.Initialize(pluginLog);
         this.minimapStateProvider = new MinimapStateProvider(
             objectTable,
             partyList,

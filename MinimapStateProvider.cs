@@ -18,13 +18,6 @@ public sealed class MinimapStateProvider
     private readonly MinimapMapTextureCache mapTextureCache;
     private readonly MinimapPlayerIndicatorCache playerIndicatorCache;
     private readonly MinimapMarkerIconCache markerIconCache;
-    private readonly List<MinimapBlip> reusableBlips = new(8);
-    private readonly List<MinimapIconMarker> reusableIconMarkers = new(MinimapLayout.MaxNativeMarkersPerFrame);
-    private readonly List<MinimapFateArea> reusableFateAreas = new(8);
-    private readonly HashSet<uint> reusablePartyEntities = new();
-    private readonly HashSet<ulong> reusableEngagedTargetIds = new();
-    private readonly HashSet<(uint IconId, int X, int Z)> reusableSeenIconCells = new();
-    private readonly HashSet<(int X, int Z)> reusableSeenGatheringCells = new();
     private long lastEventMarkerRefreshMs;
 
     public MinimapDiagnosticReport LatestDiagnostics { get; private set; } = new();
@@ -60,13 +53,9 @@ public sealed class MinimapStateProvider
         }
 
         var range = MinimapLayout.ClampVisibleRange(visibleRangeYalms);
-        this.reusableBlips.Clear();
-        this.reusableIconMarkers.Clear();
-        this.reusableFateAreas.Clear();
-        this.reusablePartyEntities.Clear();
-        this.reusableEngagedTargetIds.Clear();
-        this.reusableSeenIconCells.Clear();
-        this.reusableSeenGatheringCells.Clear();
+        var blips = new List<MinimapBlip>(8);
+        var iconMarkers = new List<MinimapIconMarker>(MinimapLayout.MaxNativeMarkersPerFrame);
+        var fateAreas = new List<MinimapFateArea>(8);
 
         var hasMapTexture = this.mapTextureCache.TryGetCurrentMapTexture(out var mapTexture) &&
                             MinimapTextureUtil.IsDrawable(mapTexture);
@@ -99,13 +88,11 @@ public sealed class MinimapStateProvider
                 sizeFactor,
                 range,
                 partyBlipRadius,
-                this.reusableBlips,
-                this.reusablePartyEntities);
+                blips);
 
             MinimapEnemyBlips.TryCollect(
                 this.objectTable,
                 this.partyList,
-                this.clientState,
                 player,
                 contentHalf,
                 mapUvMin,
@@ -115,8 +102,7 @@ public sealed class MinimapStateProvider
                 sizeFactor,
                 range,
                 partyBlipRadius,
-                this.reusableBlips,
-                this.reusableEngagedTargetIds);
+                blips);
         }
 
         if (showNativeMarkers && hasMapTransform)
@@ -137,10 +123,10 @@ public sealed class MinimapStateProvider
                 range,
                 clampedMarkerSize,
                 this.markerIconCache,
-                this.reusableIconMarkers,
+                iconMarkers,
                 markerBudget);
 
-            var remainingMarkerBudget = markerBudget - this.reusableIconMarkers.Count;
+            var remainingMarkerBudget = markerBudget - iconMarkers.Count;
             if (remainingMarkerBudget > 0)
             {
                 MinimapTempMapMarkers.TryCollect(
@@ -154,9 +140,9 @@ public sealed class MinimapStateProvider
                     range,
                     clampedMarkerSize,
                     this.markerIconCache,
-                    this.reusableIconMarkers,
+                    iconMarkers,
                     remainingMarkerBudget);
-                remainingMarkerBudget = markerBudget - this.reusableIconMarkers.Count;
+                remainingMarkerBudget = markerBudget - iconMarkers.Count;
             }
 
             if (remainingMarkerBudget > 0)
@@ -174,10 +160,9 @@ public sealed class MinimapStateProvider
                     range,
                     clampedMarkerSize,
                     this.markerIconCache,
-                    this.reusableIconMarkers,
-                    this.reusableSeenGatheringCells,
+                    iconMarkers,
                     remainingMarkerBudget);
-                remainingMarkerBudget = markerBudget - this.reusableIconMarkers.Count;
+                remainingMarkerBudget = markerBudget - iconMarkers.Count;
             }
 
             if (remainingMarkerBudget > 0)
@@ -193,9 +178,9 @@ public sealed class MinimapStateProvider
                     range,
                     clampedMarkerSize,
                     this.markerIconCache,
-                    this.reusableIconMarkers,
+                    iconMarkers,
                     remainingMarkerBudget);
-                remainingMarkerBudget = markerBudget - this.reusableIconMarkers.Count;
+                remainingMarkerBudget = markerBudget - iconMarkers.Count;
             }
 
             if (remainingMarkerBudget > 0)
@@ -211,10 +196,10 @@ public sealed class MinimapStateProvider
                     range,
                     clampedMarkerSize,
                     this.markerIconCache,
-                    this.reusableIconMarkers,
-                    this.reusableFateAreas,
+                    iconMarkers,
+                    fateAreas,
                     remainingMarkerBudget);
-                remainingMarkerBudget = markerBudget - this.reusableIconMarkers.Count;
+                remainingMarkerBudget = markerBudget - iconMarkers.Count;
             }
 
             if (remainingMarkerBudget > 0)
@@ -230,14 +215,14 @@ public sealed class MinimapStateProvider
                     range,
                     clampedMarkerSize,
                     this.markerIconCache,
-                    this.reusableIconMarkers,
+                    iconMarkers,
                     remainingMarkerBudget);
-                remainingMarkerBudget = markerBudget - this.reusableIconMarkers.Count;
+                remainingMarkerBudget = markerBudget - iconMarkers.Count;
             }
 
             if (remainingMarkerBudget > 0)
             {
-                MinimapMapMarkers.TryCollect(
+                var naviMarkersAdded = MinimapNaviMapMarkers.TryCollect(
                     contentHalf,
                     mapUvMin,
                     mapUvMax,
@@ -248,27 +233,27 @@ public sealed class MinimapStateProvider
                     range,
                     clampedMarkerSize,
                     this.markerIconCache,
-                    this.reusableIconMarkers,
-                    this.reusableSeenIconCells,
+                    iconMarkers,
                     remainingMarkerBudget);
-                remainingMarkerBudget = markerBudget - this.reusableIconMarkers.Count;
-            }
-
-            if (remainingMarkerBudget > 0)
-            {
-                MinimapNaviMapMarkers.TryCollect(
-                    contentHalf,
-                    mapUvMin,
-                    mapUvMax,
-                    player.Position,
-                    offsetX,
-                    offsetY,
-                    sizeFactor,
-                    range,
-                    clampedMarkerSize,
-                    this.markerIconCache,
-                    this.reusableIconMarkers,
-                    remainingMarkerBudget);
+                remainingMarkerBudget = markerBudget - iconMarkers.Count;
+                // In city hubs, MapMarkers and MiniMapMarkers often overlap static services.
+                // Prefer NaviMapMarkers and only use MapMarkers as fallback when NaviMapMarkers produced none.
+                if (remainingMarkerBudget > 0 && naviMarkersAdded <= 0)
+                {
+                    MinimapMapMarkers.TryCollect(
+                        contentHalf,
+                        mapUvMin,
+                        mapUvMax,
+                        player.Position,
+                        offsetX,
+                        offsetY,
+                        sizeFactor,
+                        range,
+                        clampedMarkerSize,
+                        this.markerIconCache,
+                        iconMarkers,
+                        remainingMarkerBudget);
+                }
             }
         }
 
@@ -284,9 +269,9 @@ public sealed class MinimapStateProvider
             CameraMapYaw = cameraMapYaw,
             HasCameraMapYaw = hasCameraMapYaw,
             MapTitle = this.GetMapTitle(),
-            Blips = this.reusableBlips.ToArray(),
-            IconMarkers = this.reusableIconMarkers.ToArray(),
-            FateAreas = this.reusableFateAreas.ToArray(),
+            Blips = blips,
+            IconMarkers = iconMarkers,
+            FateAreas = fateAreas,
             MapTexture = mapTexture,
             MapUvMin = mapUvMin,
             MapUvMax = mapUvMax,
@@ -433,9 +418,9 @@ public sealed class MinimapStateProvider
         {
             agentMap->UpdateEventMapMarkers(&agentMap->EventMarkersPtrs);
         }
-        catch (Exception ex)
+        catch
         {
-            MinimapFailureLogger.LogCollectorFailure("state_provider.event_refresh", ex);
+            // Best-effort refresh; marker collectors can still use current vector state.
         }
     }
 

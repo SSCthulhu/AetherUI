@@ -15,7 +15,6 @@ internal static class MinimapEnemyBlips
     public static int TryCollect(
         IObjectTable objectTable,
         IPartyList partyList,
-        IClientState clientState,
         ICharacter player,
         float contentHalf,
         Vector2 mapUvMin,
@@ -25,15 +24,13 @@ internal static class MinimapEnemyBlips
         uint sizeFactor,
         float visibleRangeYalms,
         float blipRadius,
-        List<MinimapBlip> blips,
-        HashSet<ulong> reusableEngagedTargetIds)
+        List<MinimapBlip> blips)
     {
         try
         {
             return TryCollectCore(
                 objectTable,
                 partyList,
-                clientState,
                 player,
                 contentHalf,
                 mapUvMin,
@@ -43,12 +40,10 @@ internal static class MinimapEnemyBlips
                 sizeFactor,
                 visibleRangeYalms,
                 blipRadius,
-                blips,
-                reusableEngagedTargetIds);
+                blips);
         }
-        catch (Exception ex)
+        catch
         {
-            MinimapFailureLogger.LogCollectorFailure("enemy_blips.collect", ex);
             return 0;
         }
     }
@@ -56,7 +51,6 @@ internal static class MinimapEnemyBlips
     private static int TryCollectCore(
         IObjectTable objectTable,
         IPartyList partyList,
-        IClientState clientState,
         ICharacter player,
         float contentHalf,
         Vector2 mapUvMin,
@@ -66,15 +60,9 @@ internal static class MinimapEnemyBlips
         uint sizeFactor,
         float visibleRangeYalms,
         float blipRadius,
-        List<MinimapBlip> blips,
-        HashSet<ulong> reusableEngagedTargetIds)
+        List<MinimapBlip> blips)
     {
-        var engagedTargetIds = BuildEngagedTargetSet(
-            objectTable,
-            player,
-            partyList,
-            (ushort)clientState.TerritoryType,
-            reusableEngagedTargetIds);
+        var engagedTargetIds = BuildEngagedTargetSet(objectTable, player, partyList);
         var playerObjectId = player.GameObjectId;
         var playerPosition = player.Position;
         var collected = 0;
@@ -99,14 +87,7 @@ internal static class MinimapEnemyBlips
 
             // Engagement gate: enemy is actively in combat and has party/player as target.
             var enemyInCombat = (enemy.StatusFlags & StatusFlags.InCombat) != 0;
-            var targetObjectId = enemy.TargetObjectId;
-            if (!enemyInCombat || targetObjectId == 0)
-            {
-                continue;
-            }
-
-            if (!engagedTargetIds.Contains(targetObjectId) &&
-                (enemy.TargetObject is not ICharacter targetCharacter || !engagedTargetIds.Contains(targetCharacter.EntityId)))
+            if (!enemyInCombat || !engagedTargetIds.Contains(enemy.TargetObjectId))
             {
                 continue;
             }
@@ -146,20 +127,10 @@ internal static class MinimapEnemyBlips
         return collected;
     }
 
-    private static HashSet<ulong> BuildEngagedTargetSet(
-        IObjectTable objectTable,
-        ICharacter player,
-        IPartyList partyList,
-        ushort playerTerritoryType,
-        HashSet<ulong> reusableIds)
+    private static HashSet<ulong> BuildEngagedTargetSet(IObjectTable objectTable, ICharacter player, IPartyList partyList)
     {
-        reusableIds.Clear();
-        var ids = reusableIds;
+        var ids = new HashSet<ulong>();
         ids.Add(player.GameObjectId);
-        if (player.EntityId != 0)
-        {
-            ids.Add(player.EntityId);
-        }
 
         for (var i = 0; i < partyList.Length; i++)
         {
@@ -169,17 +140,7 @@ internal static class MinimapEnemyBlips
                 continue;
             }
 
-            if (member.Territory.RowId != 0 && member.Territory.RowId != playerTerritoryType)
-            {
-                continue;
-            }
-
-            var memberObjectId = member.GameObject?.GameObjectId ?? 0;
-            if (memberObjectId != 0)
-            {
-                ids.Add(memberObjectId);
-            }
-            ids.Add(member.EntityId);
+            ids.Add(member.GameObject?.GameObjectId ?? 0);
         }
 
         // Duty Support / Trust allies are battle NPCs with class jobs and positive HP.
@@ -192,16 +153,12 @@ internal static class MinimapEnemyBlips
                 continue;
             }
 
-            if (obj.GameObjectId == playerObjectId ||
-                ally.ClassJob.RowId == 0 ||
-                ally.MaxHp == 0 ||
-                ally.CurrentHp == 0)
+            if (obj.GameObjectId == playerObjectId || ally.ClassJob.RowId == 0 || ally.MaxHp == 0 || ally.CurrentHp == 0)
             {
                 continue;
             }
 
             ids.Add(obj.GameObjectId);
-            ids.Add(ally.EntityId);
         }
 
         ids.Remove(0);

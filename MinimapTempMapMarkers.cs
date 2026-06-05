@@ -43,9 +43,8 @@ internal static class MinimapTempMapMarkers
                 markers,
                 maxMarkers);
         }
-        catch (Exception ex)
+        catch
         {
-            MinimapFailureLogger.LogCollectorFailure("temp_map_markers.collect", ex);
             return 0;
         }
     }

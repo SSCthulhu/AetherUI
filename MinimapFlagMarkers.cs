@@ -45,9 +45,8 @@ internal static class MinimapFlagMarkers
                 iconCache,
                 markers);
         }
-        catch (Exception ex)
+        catch
         {
-            MinimapFailureLogger.LogCollectorFailure("flag_markers.collect", ex);
             return 0;
         }
     }
