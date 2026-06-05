@@ -1,0 +1,43 @@
+name: Build and Release Plugin
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build Release
+        run: dotnet build FFXIVHudPlugin.csproj -c Release --no-restore
+
+      - name: Package Plugin
+        shell: pwsh
+        run: |
+          $outDir = "bin/Release"
+          $zipPath = "FFXIVHudPlugin.zip"
+          if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
+          Compress-Archive -Path "$outDir/*" -DestinationPath $zipPath -Force
+
+      - name: Publish Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: FFXIVHudPlugin.zip
+          generate_release_notes: true

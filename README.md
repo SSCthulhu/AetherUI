@@ -19,6 +19,24 @@ Copy or symlink the output from `bin/Debug/` into your Dalamud dev plugins folde
 
 Open the plugin config from the Dalamud plugin installer or use the in-game command defined in `PluginCommands.cs`.
 
+## Experimental Repo Install (No Build Needed)
+
+For friends/testers, you can install this plugin directly from Dalamud's Experimental Repos without cloning or building.
+
+- Add this URL in `/xlsettings` -> `Experimental` -> `Custom Plugin Repositories`:
+  - `https://raw.githubusercontent.com/SSCthulhu/FFXIVHudReimagined/main/pluginmaster.json`
+- Open Dalamud plugin installer and install `FFXIV Hud Reimagined`.
+
+### Publishing updates for testers
+
+1. Bump `<Version>` in `FFXIVHudPlugin.csproj`.
+2. Commit and push to `main`.
+3. Create and push a matching git tag (example: `v0.0.66`):
+   - `git tag v0.0.66`
+   - `git push origin v0.0.66`
+4. GitHub Actions publishes `FFXIVHudPlugin.zip` to Releases automatically.
+5. Dalamud users get install/update from the same experimental repo URL.
+
 ## Action Camera Plugin (Standalone Module)
 
 This repository now includes an isolated Action Camera feature that does not alter existing HUD logic.
