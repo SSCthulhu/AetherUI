@@ -151,6 +151,11 @@ internal sealed class ActionCameraPlugin : IDisposable
                     SoftTargetScreenX = this.softTargetService.Candidate.ScreenPosition.X,
                     SoftTargetScreenY = this.softTargetService.Candidate.ScreenPosition.Y,
                     SoftTargetScore = this.softTargetService.Candidate.Score,
+                    SoftTargetScannedCount = this.softTargetService.DebugScannedCount,
+                    SoftTargetEnemyCandidateCount = this.softTargetService.DebugEnemyCandidateCount,
+                    SoftTargetEngagedCandidateCount = this.softTargetService.DebugEngagedCandidateCount,
+                    SoftTargetLastRejectedObjectId = this.softTargetService.DebugLastRejectedObjectId,
+                    SoftTargetLastRejectReason = this.softTargetService.DebugLastRejectReason,
                 };
                 this.pendingDeltaX = 0f;
                 this.pendingDeltaY = 0f;
@@ -321,7 +326,12 @@ internal sealed class ActionCameraPlugin : IDisposable
                 this.softTargetService.Candidate.ObjectId,
                 this.softTargetService.Candidate.ScreenPosition.X,
                 this.softTargetService.Candidate.ScreenPosition.Y,
-                this.softTargetService.Candidate.Score);
+                this.softTargetService.Candidate.Score,
+                this.softTargetService.DebugScannedCount,
+                this.softTargetService.DebugEnemyCandidateCount,
+                this.softTargetService.DebugEngagedCandidateCount,
+                this.softTargetService.DebugLastRejectedObjectId,
+                this.softTargetService.DebugLastRejectReason);
         }
         catch (Exception ex)
         {

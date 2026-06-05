@@ -8,6 +8,8 @@ namespace FFXIVHudPlugin;
 /// </summary>
 internal static class ActionCameraOverlay
 {
+    private const string DebugBuildMarker = "ACDBG-2026-06-05-1019";
+
     public static void Draw(ActionCameraConfiguration config, ActionCameraRuntimeState state)
     {
         if (!state.Active && !config.ShowDebugOverlay)
@@ -46,12 +48,13 @@ internal static class ActionCameraOverlay
     private static void DrawDebugWindow(ActionCameraRuntimeState state)
     {
         ImGui.SetNextWindowBgAlpha(0.55f);
-        if (!ImGui.Begin("Action Camera Debug", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoCollapse))
+        if (!ImGui.Begin($"Action Camera Debug [{DebugBuildMarker}]", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoCollapse))
         {
             ImGui.End();
             return;
         }
 
+        ImGui.TextUnformatted($"BuildMarker: {DebugBuildMarker}");
         ImGui.TextUnformatted($"Camera Active: {state.Active}");
         ImGui.TextUnformatted($"Cursor Locked: {state.CursorLocked}");
         ImGui.TextUnformatted($"Hold Unlock Held: {state.HoldUnlockHeld}");
@@ -76,6 +79,11 @@ internal static class ActionCameraOverlay
         ImGui.TextUnformatted($"SoftTargetObjectId: {state.SoftTargetObjectId}");
         ImGui.TextUnformatted($"SoftTargetScreen: {state.SoftTargetScreenX:0.0}, {state.SoftTargetScreenY:0.0}");
         ImGui.TextUnformatted($"SoftTargetScore: {state.SoftTargetScore:0.0}");
+        ImGui.TextUnformatted($"SoftTargetScanned: {state.SoftTargetScannedCount}");
+        ImGui.TextUnformatted($"SoftTargetEnemyCandidates: {state.SoftTargetEnemyCandidateCount}");
+        ImGui.TextUnformatted($"SoftTargetEngagedCandidates: {state.SoftTargetEngagedCandidateCount}");
+        ImGui.TextUnformatted($"SoftTargetLastRejectedId: {state.SoftTargetLastRejectedObjectId}");
+        ImGui.TextUnformatted($"SoftTargetLastRejectReason: {state.SoftTargetLastRejectReason}");
         ImGui.End();
     }
 

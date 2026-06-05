@@ -100,7 +100,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
         var cameraController = new CameraController(this.configuration.ActionCamera, cameraProvider);
         var rmbLatchBackend = new RmbLatchCameraBackend();
         var directBackend = new DirectCameraControlBackend(cameraController);
-        var softTargetService = new SoftTargetService(this.configuration.ActionCamera, objectTable, targetManager);
+        var softTargetService = new SoftTargetService(this.configuration.ActionCamera, objectTable, partyList, targetManager);
         this.actionCameraPlugin = new ActionCameraPlugin(
             this.configuration,
             this.clientState,

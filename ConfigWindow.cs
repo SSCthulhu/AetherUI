@@ -1,4 +1,5 @@
 using Dalamud.Bindings.ImGui;
+using System.IO;
 using System.Numerics;
 
 namespace FFXIVHudPlugin;
@@ -1006,12 +1007,25 @@ public sealed class ConfigWindow
     private void DrawMinimapTroubleshootingSection()
     {
         ImGui.TextUnformatted("Troubleshooting");
-        var buildVersion = typeof(Plugin).Assembly.GetName().Version;
+        var assembly = typeof(Plugin).Assembly;
+        var buildVersion = assembly.GetName().Version;
         ImGui.TextColored(
             0xFF6B9E6B,
             buildVersion is null
                 ? "Loaded build: unknown"
                 : $"Loaded build: {buildVersion}");
+
+        var assemblyPath = assembly.Location;
+        ImGui.TextColored(
+            0xFF9AA1AB,
+            string.IsNullOrWhiteSpace(assemblyPath)
+                ? "Loaded assembly path: unknown"
+                : $"Loaded assembly path: {assemblyPath}");
+
+        var loadedWriteTime = string.IsNullOrWhiteSpace(assemblyPath) || !File.Exists(assemblyPath)
+            ? "unknown"
+            : File.GetLastWriteTime(assemblyPath).ToString("yyyy-MM-dd HH:mm:ss");
+        ImGui.TextColored(0xFF9AA1AB, $"Loaded assembly write time (local): {loadedWriteTime}");
 
         var showDiagnostics = this.config.MinimapShowDiagnostics;
         if (DrawSettingCheckbox("Enable minimap diagnostics", ref showDiagnostics))

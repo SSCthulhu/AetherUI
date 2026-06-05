@@ -28,4 +28,9 @@ public readonly record struct ActionCameraRuntimeState(
     uint SoftTargetObjectId,
     float SoftTargetScreenX,
     float SoftTargetScreenY,
-    float SoftTargetScore);
+    float SoftTargetScore,
+    int SoftTargetScannedCount,
+    int SoftTargetEnemyCandidateCount,
+    int SoftTargetEngagedCandidateCount,
+    uint SoftTargetLastRejectedObjectId,
+    SoftTargetRejectReason SoftTargetLastRejectReason);

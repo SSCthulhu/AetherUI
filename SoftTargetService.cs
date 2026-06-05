@@ -1,29 +1,56 @@
 using Dalamud.Plugin.Services;
 using Dalamud.Bindings.ImGui;
+using Dalamud.Game.ClientState.Objects.Enums;
+using Dalamud.Game.ClientState.Objects.Types;
 using System.Numerics;
 
 namespace FFXIVHudPlugin;
+
+public enum SoftTargetRejectReason
+{
+    None = 0,
+    NotBattleNpc = 1,
+    NotTargetable = 2,
+    NotCharacter = 3,
+    Dead = 4,
+    HasClassJob = 5,
+    NotAttackable = 6,
+    HasOwner = 7,
+    NotEngaged = 8,
+}
 
 /// <summary>
 /// Optional scaffold for future soft target suggestion logic.
 /// </summary>
 internal sealed class SoftTargetService
 {
+    private const int SoftTargetAcquireStableFrames = 6;
+    private const int SoftTargetClearGraceFrames = 90;
+
     private readonly ActionCameraConfiguration config;
     private readonly IObjectTable objectTable;
+    private readonly IPartyList partyList;
     private readonly ITargetManager targetManager;
     private SoftTargetCandidate candidate;
     private uint lastAssignedObjectId;
     private uint pendingObjectId;
     private int pendingStableFrames;
+    private int noCandidateGraceFrames;
+    private int debugScannedCount;
+    private int debugEnemyCandidateCount;
+    private int debugEngagedCandidateCount;
+    private uint debugLastRejectedObjectId;
+    private SoftTargetRejectReason debugLastRejectReason;
 
     public SoftTargetService(
         ActionCameraConfiguration config,
         IObjectTable objectTable,
+        IPartyList partyList,
         ITargetManager targetManager)
     {
         this.config = config;
         this.objectTable = objectTable;
+        this.partyList = partyList;
         this.targetManager = targetManager;
     }
 
@@ -32,6 +59,11 @@ internal sealed class SoftTargetService
     /// </summary>
     public bool HasCandidate => this.candidate.HasCandidate;
     public SoftTargetCandidate Candidate => this.candidate;
+    public int DebugScannedCount => this.debugScannedCount;
+    public int DebugEnemyCandidateCount => this.debugEnemyCandidateCount;
+    public int DebugEngagedCandidateCount => this.debugEngagedCandidateCount;
+    public uint DebugLastRejectedObjectId => this.debugLastRejectedObjectId;
+    public SoftTargetRejectReason DebugLastRejectReason => this.debugLastRejectReason;
 
     /// <summary>
     /// Placeholder update path for future center-ray candidate scans.
@@ -47,7 +79,13 @@ internal sealed class SoftTargetService
             }
             this.pendingObjectId = 0;
             this.pendingStableFrames = 0;
+            this.noCandidateGraceFrames = 0;
             this.lastAssignedObjectId = 0;
+            this.debugScannedCount = 0;
+            this.debugEnemyCandidateCount = 0;
+            this.debugEngagedCandidateCount = 0;
+            this.debugLastRejectedObjectId = 0;
+            this.debugLastRejectReason = SoftTargetRejectReason.None;
             return;
         }
 
@@ -68,17 +106,35 @@ internal sealed class SoftTargetService
         var bestScore = float.MaxValue;
         var bestObjectId = 0u;
         var bestScreenPos = Vector2.Zero;
+        var scannedCount = 0;
+        var enemyCandidateCount = 0;
+        var engagedCandidateCount = 0; // Diagnostic-only count; no longer a hard filter.
+        var lastRejectedObjectId = 0u;
+        var lastRejectReason = SoftTargetRejectReason.None;
         const float maxDepth = 120f;
         const float minForwardDot = 0.28f; // Broad forward cone (~74 deg half-angle)
 
         for (var i = 0; i < this.objectTable.Length; i++)
         {
             var obj = this.objectTable[i];
-            if (obj is null || obj.ObjectKind != Dalamud.Game.ClientState.Objects.Enums.ObjectKind.BattleNpc || !obj.IsTargetable)
+            if (obj is null)
             {
                 continue;
             }
 
+            scannedCount++;
+            if (!this.TryGetEnemyCandidateCharacter(obj, out var character, out var rejectReason))
+            {
+                lastRejectedObjectId = (uint)obj.GameObjectId;
+                lastRejectReason = rejectReason;
+                continue;
+            }
+
+            enemyCandidateCount++;
+            if (IsEngagedWithPlayerGroup(character))
+            {
+                engagedCandidateCount++;
+            }
             var worldPos = obj.Position + new Vector3(0f, 1.2f, 0f);
             var toTarget = worldPos - cameraPos;
             var distance = toTarget.Length();
@@ -122,9 +178,15 @@ internal sealed class SoftTargetService
         this.candidate = bestObjectId == 0
             ? default
             : new SoftTargetCandidate(true, bestObjectId, bestScreenPos, bestScore);
+        this.debugScannedCount = scannedCount;
+        this.debugEnemyCandidateCount = enemyCandidateCount;
+        this.debugEngagedCandidateCount = engagedCandidateCount;
+        this.debugLastRejectedObjectId = lastRejectedObjectId;
+        this.debugLastRejectReason = lastRejectReason;
 
         if (this.config.AutoTarget && this.candidate.HasCandidate)
         {
+            this.noCandidateGraceFrames = 0;
             if (this.pendingObjectId != this.candidate.ObjectId)
             {
                 this.pendingObjectId = this.candidate.ObjectId;
@@ -133,7 +195,7 @@ internal sealed class SoftTargetService
             }
 
             this.pendingStableFrames++;
-            if (this.pendingStableFrames < 6)
+            if (this.pendingStableFrames < SoftTargetAcquireStableFrames)
             {
                 return;
             }
@@ -146,9 +208,21 @@ internal sealed class SoftTargetService
         else if (!this.candidate.HasCandidate)
         {
             // Keep previous soft target briefly to avoid repeated acquire/clear SFX while aim jitters.
+            if (this.config.AutoTarget && this.TryBuildStickyAssignedCandidate(out var stickyCandidate))
+            {
+                this.noCandidateGraceFrames++;
+                if (this.noCandidateGraceFrames < SoftTargetClearGraceFrames)
+                {
+                    this.candidate = stickyCandidate;
+                    return;
+                }
+            }
+
             this.ClearSoftTargetWhenNoCandidate();
             this.pendingObjectId = 0;
             this.pendingStableFrames = 0;
+            this.noCandidateGraceFrames = 0;
+            this.lastAssignedObjectId = 0;
         }
     }
 
@@ -180,6 +254,52 @@ internal sealed class SoftTargetService
         return false;
     }
 
+    private bool TryBuildStickyAssignedCandidate(out SoftTargetCandidate stickyCandidate)
+    {
+        stickyCandidate = default;
+        if (this.lastAssignedObjectId == 0)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < this.objectTable.Length; i++)
+        {
+            var obj = this.objectTable[i];
+            if (obj is null || (uint)obj.GameObjectId != this.lastAssignedObjectId)
+            {
+                continue;
+            }
+
+            if (!this.TryGetEnemyCandidateCharacter(obj, out _, out _))
+            {
+                return false;
+            }
+
+            var worldPos = obj.Position + new Vector3(0f, 1.2f, 0f);
+            if (!TryWorldToScreen(worldPos, out var screenPos))
+            {
+                return false;
+            }
+
+            var score = this.candidate.Score;
+            if (!TryGetScreenCenter(out var screenCenter))
+            {
+                screenCenter = Vector2.Zero;
+            }
+
+            if (screenCenter != Vector2.Zero)
+            {
+                var delta = screenPos - screenCenter;
+                score = (delta.X * delta.X) + (delta.Y * delta.Y);
+            }
+
+            stickyCandidate = new SoftTargetCandidate(true, this.lastAssignedObjectId, screenPos, score);
+            return true;
+        }
+
+        return false;
+    }
+
     private void ClearSoftTargetWhenNoCandidate()
     {
         if (this.targetManager.SoftTarget is null)
@@ -188,6 +308,92 @@ internal sealed class SoftTargetService
         }
 
         this.targetManager.SoftTarget = null;
+    }
+
+    private bool TryGetEnemyCandidateCharacter(
+        IGameObject obj,
+        out ICharacter character,
+        out SoftTargetRejectReason rejectReason)
+    {
+        character = default!;
+        rejectReason = SoftTargetRejectReason.None;
+
+        if (obj.ObjectKind != ObjectKind.BattleNpc)
+        {
+            rejectReason = SoftTargetRejectReason.NotBattleNpc;
+            return false;
+        }
+
+        if (!obj.IsTargetable)
+        {
+            rejectReason = SoftTargetRejectReason.NotAttackable;
+            return false;
+        }
+
+        if (obj is not ICharacter typedCharacter)
+        {
+            rejectReason = SoftTargetRejectReason.NotCharacter;
+            return false;
+        }
+
+        character = typedCharacter;
+        if (character.CurrentHp == 0 || character.MaxHp == 0)
+        {
+            rejectReason = SoftTargetRejectReason.Dead;
+            return false;
+        }
+
+        // Duty support/trust companions expose class jobs like player characters.
+        // Hostile battle enemies normally do not, so exclude non-zero class-job rows.
+        if (character.ClassJob.RowId != 0)
+        {
+            rejectReason = SoftTargetRejectReason.HasClassJob;
+            return false;
+        }
+
+        if (character.OwnerId != 0 && this.IsOwnedByPlayerGroup(character.OwnerId))
+        {
+            rejectReason = SoftTargetRejectReason.HasOwner;
+            return false;
+        }
+
+        return true;
+    }
+
+    private bool IsOwnedByPlayerGroup(ulong ownerId)
+    {
+        if (ownerId == 0)
+        {
+            return false;
+        }
+
+        var playerObjectId = this.objectTable.LocalPlayer?.GameObjectId ?? 0;
+        if (ownerId == playerObjectId)
+        {
+            return true;
+        }
+
+        for (var i = 0; i < this.partyList.Length; i++)
+        {
+            var member = this.partyList[i];
+            var memberObjectId = member?.GameObject?.GameObjectId ?? 0;
+            if (ownerId == memberObjectId)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsEngagedWithPlayerGroup(ICharacter enemy)
+    {
+        if ((enemy.StatusFlags & StatusFlags.InCombat) == 0)
+        {
+            return false;
+        }
+
+        return true;
     }
 
     private static bool TryGetScreenCenter(out Vector2 center)
