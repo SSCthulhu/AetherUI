@@ -37,6 +37,8 @@ For friends/testers, you can install this plugin directly from Dalamud's Experim
 4. GitHub Actions publishes `FFXIVHudPlugin.zip` to Releases automatically.
 5. Dalamud users get install/update from the same experimental repo URL.
 
+For the full repeatable process, use `PUBLISH_CHECKLIST.md`.
+
 ## Action Camera Plugin (Standalone Module)
 
 This repository now includes an isolated Action Camera feature that does not alter existing HUD logic.
