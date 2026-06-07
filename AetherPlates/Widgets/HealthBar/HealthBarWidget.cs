@@ -1,6 +1,7 @@
 using FFXIVHudPlugin.AetherPlates.Data;
 using FFXIVHudPlugin.AetherPlates.Layout;
 using FFXIVHudPlugin.AetherPlates.Rendering;
+using FFXIVHudPlugin.AetherPlates.Configuration;
 using System.Collections.Concurrent;
 using System.Numerics;
 
@@ -55,10 +56,88 @@ public sealed class HealthBarWidget : INameplateWidget
         {
             drawContext.DrawFilledRect(new Vector2(fillMax.X, min.Y), new Vector2(shieldMax, max.Y), 0x664AB3E8, radius);
         }
+
+        DrawTargetIndicatorOverlay(context, drawContext, min, max);
     }
 
     private static float Lerp(float from, float to, float amount)
     {
         return from + ((to - from) * Math.Clamp(amount, 0f, 1f));
+    }
+
+    private static void DrawTargetIndicatorOverlay(NameplateContext context, DrawContext drawContext, Vector2 min, Vector2 max)
+    {
+        if (!context.IsTarget || !context.CategoryVisual.TargetIndicatorEnabled)
+        {
+            return;
+        }
+
+        var targetCfg = context.Profile.TargetIndicator;
+        var color = ApplyOpacity(targetCfg.Color, Math.Clamp(targetCfg.Opacity, 0f, 1f));
+        var style = targetCfg.Style;
+        var indicatorScale = Math.Clamp(targetCfg.Scale, 0.25f, 8f);
+        var indicatorSize = new Vector2(
+            Math.Max(4f, targetCfg.Size.X) * indicatorScale,
+            Math.Max(4f, targetCfg.Size.Y) * indicatorScale);
+        var width = max.X - min.X;
+        var height = max.Y - min.Y;
+        var scale = Math.Clamp(context.GlobalScale, 0.5f, 3f);
+        var centerY = min.Y + (height * 0.5f);
+
+        switch (style)
+        {
+            case TargetIndicatorStyle.GlowBorder:
+                var glowExpand = new Vector2(
+                    MathF.Max(1f, indicatorSize.X * 0.08f),
+                    MathF.Max(1f, indicatorSize.Y * 0.16f));
+                drawContext.DrawGlow(min - glowExpand, max + glowExpand, color, 2.5f * scale * indicatorScale);
+                drawContext.DrawBorder(min - glowExpand * 0.5f, max + glowExpand * 0.5f, color, 4f, 1.2f * indicatorScale);
+                break;
+
+            case TargetIndicatorStyle.TopArrow:
+            {
+                using var fontScope = GameFontRegistry.PushFont(context.FontFamilyId);
+                var fontSize = Math.Max(8f, indicatorSize.Y * 1.25f) * scale;
+                var pos = new Vector2(
+                    min.X + (width * 0.5f) - (indicatorSize.X * 0.25f),
+                    min.Y - indicatorSize.Y);
+                drawContext.DrawText(pos + new Vector2(1f, 1f), 0xCC000000, "▼", fontSize);
+                drawContext.DrawText(pos, color, "▼", fontSize);
+                break;
+            }
+
+            case TargetIndicatorStyle.DoubleSideArrows:
+            {
+                using var fontScope = GameFontRegistry.PushFont(context.FontFamilyId);
+                var fontSize = Math.Max(8f, indicatorSize.Y * 1.25f) * scale;
+                var leftPos = new Vector2(min.X - indicatorSize.X, centerY - (indicatorSize.Y * 0.5f));
+                var rightPos = new Vector2(max.X + (indicatorSize.X * 0.15f), centerY - (indicatorSize.Y * 0.5f));
+                drawContext.DrawText(leftPos + new Vector2(1f, 1f), 0xCC000000, ">>", fontSize);
+                drawContext.DrawText(rightPos + new Vector2(1f, 1f), 0xCC000000, "<<", fontSize);
+                drawContext.DrawText(leftPos, color, ">>", fontSize);
+                drawContext.DrawText(rightPos, color, "<<", fontSize);
+                break;
+            }
+
+            case TargetIndicatorStyle.SideArrows:
+            default:
+            {
+                using var fontScope = GameFontRegistry.PushFont(context.FontFamilyId);
+                var fontSize = Math.Max(8f, indicatorSize.Y * 1.25f) * scale;
+                var leftPos = new Vector2(min.X - (indicatorSize.X * 0.65f), centerY - (indicatorSize.Y * 0.5f));
+                var rightPos = new Vector2(max.X + (indicatorSize.X * 0.08f), centerY - (indicatorSize.Y * 0.5f));
+                drawContext.DrawText(leftPos + new Vector2(1f, 1f), 0xCC000000, ">", fontSize);
+                drawContext.DrawText(rightPos + new Vector2(1f, 1f), 0xCC000000, "<", fontSize);
+                drawContext.DrawText(leftPos, color, ">", fontSize);
+                drawContext.DrawText(rightPos, color, "<", fontSize);
+                break;
+            }
+        }
+    }
+
+    private static uint ApplyOpacity(uint color, float opacity)
+    {
+        var alpha = (uint)Math.Clamp((int)MathF.Round(((color >> 24) & 0xFF) * opacity), 0, 255);
+        return (color & 0x00FFFFFF) | (alpha << 24);
     }
 }

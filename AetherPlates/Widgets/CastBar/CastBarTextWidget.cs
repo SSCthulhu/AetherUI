@@ -4,6 +4,7 @@ using Dalamud.Bindings.ImGui;
 using FFXIVHudPlugin.AetherPlates.Data;
 using FFXIVHudPlugin.AetherPlates.Layout;
 using FFXIVHudPlugin.AetherPlates.Rendering;
+using FFXIVHudPlugin.AetherPlates.Configuration;
 using System.Numerics;
 
 public sealed class CastBarTextWidget : INameplateWidget
@@ -32,8 +33,15 @@ public sealed class CastBarTextWidget : INameplateWidget
         using var fontScope = GameFontRegistry.PushFont(context.FontFamilyId);
         var baseFontSize = Math.Max(1f, ImGui.GetFontSize());
         var measuredText = ImGui.CalcTextSize(castName) * (textSize / baseFontSize);
+        var align = context.CategoryVisual.CastBarTextAlignment;
+        var alignedX = align switch
+        {
+            NameplateTextAlignment.Left => layout.Position.X,
+            NameplateTextAlignment.Right => layout.Position.X + MathF.Max(0f, layout.Size.X - measuredText.X),
+            _ => layout.Position.X + MathF.Max(0f, (layout.Size.X - measuredText.X) * 0.5f),
+        };
         var textPos = new Vector2(
-            layout.Position.X + MathF.Max(0f, (layout.Size.X - measuredText.X) * 0.5f),
+            alignedX,
             layout.Position.Y + MathF.Max(0f, (layout.Size.Y - measuredText.Y) * 0.5f));
 
         drawContext.DrawText(textPos + new Vector2(-stroke, 0f), 0xF0000000, castName, textSize);

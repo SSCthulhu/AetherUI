@@ -205,7 +205,16 @@ public sealed class PluginConfiguration
         profile.EnabledWidgets ??= new HashSet<string>(StringComparer.Ordinal);
         profile.HealthBar ??= new HealthBarWidgetConfig();
         profile.NameText ??= new NameTextWidgetConfig();
+        if (!Enum.IsDefined(typeof(NameplateTextAlignment), profile.NameText.Alignment))
+        {
+            profile.NameText.Alignment = NameplateTextAlignment.Center;
+        }
         profile.TargetIndicator ??= new TargetIndicatorWidgetConfig();
+        profile.TargetIndicator.Opacity = Math.Clamp(profile.TargetIndicator.Opacity, 0f, 1f);
+        profile.TargetIndicator.Scale = Math.Clamp(profile.TargetIndicator.Scale, 0.25f, 8f);
+        profile.TargetIndicator.Size = new System.Numerics.Vector2(
+            Math.Max(4f, profile.TargetIndicator.Size.X),
+            Math.Max(4f, profile.TargetIndicator.Size.Y));
         profile.CastBar ??= new CastBarWidgetConfig();
         profile.BuffRow ??= new BuffRowWidgetConfig();
         profile.DebuffRow ??= new DebuffRowWidgetConfig();
@@ -479,12 +488,32 @@ public sealed class NameTextWidgetConfig
     public bool Shadow { get; set; } = true;
     public float FontScale { get; set; } = 1.0f;
     public int TruncateAt { get; set; } = 36;
+    public NameplateTextAlignment Alignment { get; set; } = NameplateTextAlignment.Center;
 }
 
 [Serializable]
 public sealed class TargetIndicatorWidgetConfig
 {
+    public TargetIndicatorStyle Style { get; set; } = TargetIndicatorStyle.SideArrows;
     public uint Color { get; set; } = 0xFF4AB3FF;
+    public float Opacity { get; set; } = 1.0f;
+    public System.Numerics.Vector2 Size { get; set; } = new(24f, 12f);
+    public float Scale { get; set; } = 1.0f;
+}
+
+public enum TargetIndicatorStyle
+{
+    SideArrows = 0,
+    DoubleSideArrows = 1,
+    TopArrow = 2,
+    GlowBorder = 3,
+}
+
+public enum NameplateTextAlignment
+{
+    Left = 0,
+    Center = 1,
+    Right = 2,
 }
 
 [Serializable]
@@ -530,10 +559,12 @@ public sealed class CategoryVisualSettings
     public bool HealthBarEnabled { get; set; } = true;
     public bool NameTextEnabled { get; set; } = true;
     public float NameTextFontSize { get; set; } = 16f;
+    public NameplateTextAlignment NameTextAlignment { get; set; } = NameplateTextAlignment.Center;
     public bool TargetIndicatorEnabled { get; set; } = true;
     public bool CastBarEnabled { get; set; } = true;
     public bool CastBarTextEnabled { get; set; } = true;
     public float CastBarTextFontSize { get; set; } = 14f;
+    public NameplateTextAlignment CastBarTextAlignment { get; set; } = NameplateTextAlignment.Center;
     public bool BuffRowEnabled { get; set; } = true;
     public float BuffRowScale { get; set; } = 1.0f;
     public bool DebuffRowEnabled { get; set; } = true;
@@ -569,6 +600,14 @@ public sealed class CategoryVisualSettings
         this.FontFamilyId = Math.Max(0, this.FontFamilyId);
         this.NameTextFontSize = Math.Clamp(this.NameTextFontSize, 8f, 64f);
         this.CastBarTextFontSize = Math.Clamp(this.CastBarTextFontSize, 8f, 64f);
+        if (!Enum.IsDefined(typeof(NameplateTextAlignment), this.NameTextAlignment))
+        {
+            this.NameTextAlignment = NameplateTextAlignment.Center;
+        }
+        if (!Enum.IsDefined(typeof(NameplateTextAlignment), this.CastBarTextAlignment))
+        {
+            this.CastBarTextAlignment = NameplateTextAlignment.Center;
+        }
         this.BuffRowScale = Math.Clamp(this.BuffRowScale, 0.25f, 8f);
         this.DebuffRowScale = Math.Clamp(this.DebuffRowScale, 0.25f, 8f);
         CopyFallbackLayout("health_bar");

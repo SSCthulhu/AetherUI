@@ -1,6 +1,7 @@
 using FFXIVHudPlugin.AetherPlates.Data;
 using FFXIVHudPlugin.AetherPlates.Layout;
 using FFXIVHudPlugin.AetherPlates.Rendering;
+using FFXIVHudPlugin.AetherPlates.Configuration;
 using Dalamud.Bindings.ImGui;
 using System.Numerics;
 
@@ -31,8 +32,15 @@ public sealed class NameTextWidget : INameplateWidget
         using var fontScope = GameFontRegistry.PushFont(context.FontFamilyId);
         var baseFontSize = Math.Max(1f, ImGui.GetFontSize());
         var textSize = ImGui.CalcTextSize(displayText) * (fontSize / baseFontSize);
+        var align = context.CategoryVisual.NameTextAlignment;
+        var alignedX = align switch
+        {
+            NameplateTextAlignment.Left => layout.Position.X,
+            NameplateTextAlignment.Right => layout.Position.X + MathF.Max(0f, layout.Size.X - textSize.X),
+            _ => layout.Position.X + MathF.Max(0f, (layout.Size.X - textSize.X) * 0.5f),
+        };
         var pos = new Vector2(
-            layout.Position.X + MathF.Max(0f, (layout.Size.X - textSize.X) * 0.5f),
+            alignedX,
             layout.Position.Y + MathF.Max(0f, (layout.Size.Y - textSize.Y) * 0.5f));
 
         if (context.Profile.NameText.Outline)

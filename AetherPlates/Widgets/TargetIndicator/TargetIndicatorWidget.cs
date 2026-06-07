@@ -16,19 +16,7 @@ public sealed class TargetIndicatorWidget : INameplateWidget
 
     public void Draw(NameplateContext context, DrawContext drawContext, WidgetLayout layout)
     {
-        if (!context.IsTarget)
-        {
-            return;
-        }
-
-        var min = layout.Position;
-        var max = layout.Position + layout.Size;
-        var center = new Vector2((min.X + max.X) * 0.5f, max.Y);
-        var color = context.Profile.TargetIndicator.Color;
-
-        drawContext.DrawGlow(min - new Vector2(2f, 2f), max + new Vector2(2f, 2f), 0x8064A8FF, 2.5f);
-        var scaleFactor = Math.Clamp(context.GlobalScale, 0.5f, 3.0f);
-        using var fontScope = GameFontRegistry.PushFont(context.FontFamilyId);
-        drawContext.DrawText(center + new Vector2(-4f, -10f) * scaleFactor, color, "▼", 14f * scaleFactor);
+        // Target indicator visuals are now rendered as part of the health bar.
+        // Keep this widget as a no-op for backward-compatible layout/config migration.
     }
 }
