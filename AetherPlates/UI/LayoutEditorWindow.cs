@@ -165,6 +165,20 @@ public sealed class LayoutEditorWindow
         {
             ImGui.TextColored(0xFF9AA1AB, $"Copied from: {copiedFromCategoryTitle}");
         }
+
+        if (target.Category == NameplateManager.NameplateCategory.Boss)
+        {
+            ImGui.Spacing();
+            var bossAnchorOffset = this.config.BossTargetBarAnchorOffset;
+            if (ImGui.DragFloat2("Boss Screen Offset From Center (X/Y)", ref bossAnchorOffset, 0.5f, -2000f, 2000f, "%.1f"))
+            {
+                this.config.BossTargetBarAnchorOffset = bossAnchorOffset;
+                this.onConfigChanged();
+            }
+
+            ImGui.TextColored(0xFF9AA1AB, "(0,0) is screen center. This moves the entire Boss plate anchor.");
+        }
+
         ImGui.Separator();
     }
 
@@ -340,7 +354,8 @@ public sealed class LayoutEditorWindow
             or NameplateManager.NameplateCategory.EnemyClaimed
             or NameplateManager.NameplateCategory.EnemyUnclaimed
             or NameplateManager.NameplateCategory.EnemyFeast
-            or NameplateManager.NameplateCategory.EnemyFeastPet;
+            or NameplateManager.NameplateCategory.EnemyFeastPet
+            or NameplateManager.NameplateCategory.Boss;
 
         return new NameplateContext(
             tracked,
@@ -465,6 +480,11 @@ public sealed class LayoutEditorWindow
                 isHostile = true;
                 enemyState = EnemyNameplateState.FeastPet;
                 break;
+            case NameplateManager.NameplateCategory.Boss:
+                name = "Boss (Target Bar)";
+                isHostile = true;
+                enemyState = EnemyNameplateState.Engaged;
+                break;
         }
 
         var statuses = new List<StatusSnapshot>
@@ -502,6 +522,7 @@ public sealed class LayoutEditorWindow
             enemyState,
             0,
             subKind,
+            0,
             isPlayer,
             statuses,
             cast);
@@ -679,6 +700,7 @@ public sealed class LayoutEditorWindow
 
         if (!indicatorEnabled)
         {
+            DrawBossHealthTextControls(categoryId, visuals);
             return;
         }
 
@@ -724,6 +746,138 @@ public sealed class LayoutEditorWindow
         {
             targetCfg.Scale = Math.Clamp(indicatorScale, 0.25f, 8f);
             this.onConfigChanged();
+        }
+
+        var indicatorOffset = targetCfg.Offset;
+        if (ImGui.DragFloat2($"Indicator Offset (X/Y)##{categoryId}_health_target_indicator_offset", ref indicatorOffset, 0.5f, -600f, 600f, "%.1f"))
+        {
+            targetCfg.Offset = indicatorOffset;
+            this.onConfigChanged();
+        }
+
+        DrawBossHealthTextControls(categoryId, visuals);
+        ImGui.Unindent();
+    }
+
+    private void DrawBossHealthTextControls(string categoryId, CategoryVisualSettings visuals)
+    {
+        if (!string.Equals(categoryId, "boss", StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        ImGui.Spacing();
+        ImGui.Separator();
+        ImGui.Spacing();
+        ImGui.TextUnformatted("Boss Health Text");
+
+        var showHpValueText = visuals.BossShowHpValueText;
+        if (ImGui.Checkbox($"Show Remaining HP / Total HP##{categoryId}_health_show_hp_value_text", ref showHpValueText))
+        {
+            visuals.BossShowHpValueText = showHpValueText;
+            this.onConfigChanged();
+        }
+        if (showHpValueText)
+        {
+            var valueFontSize = visuals.BossHpValueTextFontSize;
+            var valueOffset = visuals.BossHpValueTextOffset;
+            var valueUseGlobalFont = visuals.BossHpValueTextUseGlobalFont ?? visuals.BossHpValueTextFontFamilyId == 0;
+            var valueFontFamilyId = visuals.BossHpValueTextFontFamilyId;
+            DrawBossTextDetailControls(
+                categoryId,
+                "boss_hp_value_text",
+                ref valueFontSize,
+                ref valueOffset,
+                ref valueUseGlobalFont,
+                ref valueFontFamilyId);
+            visuals.BossHpValueTextFontSize = valueFontSize;
+            visuals.BossHpValueTextOffset = valueOffset;
+            visuals.BossHpValueTextUseGlobalFont = valueUseGlobalFont;
+            visuals.BossHpValueTextFontFamilyId = valueFontFamilyId;
+        }
+
+        var showHpPercentText = visuals.BossShowHpPercentText;
+        if (ImGui.Checkbox($"Show HP % Remaining##{categoryId}_health_show_hp_percent_text", ref showHpPercentText))
+        {
+            visuals.BossShowHpPercentText = showHpPercentText;
+            this.onConfigChanged();
+        }
+        if (showHpPercentText)
+        {
+            var percentFontSize = visuals.BossHpPercentTextFontSize;
+            var percentOffset = visuals.BossHpPercentTextOffset;
+            var percentUseGlobalFont = visuals.BossHpPercentTextUseGlobalFont ?? visuals.BossHpPercentTextFontFamilyId == 0;
+            var percentFontFamilyId = visuals.BossHpPercentTextFontFamilyId;
+            DrawBossTextDetailControls(
+                categoryId,
+                "boss_hp_percent_text",
+                ref percentFontSize,
+                ref percentOffset,
+                ref percentUseGlobalFont,
+                ref percentFontFamilyId);
+            visuals.BossHpPercentTextFontSize = percentFontSize;
+            visuals.BossHpPercentTextOffset = percentOffset;
+            visuals.BossHpPercentTextUseGlobalFont = percentUseGlobalFont;
+            visuals.BossHpPercentTextFontFamilyId = percentFontFamilyId;
+        }
+    }
+
+    private void DrawBossTextDetailControls(
+        string categoryId,
+        string controlId,
+        ref float fontSize,
+        ref Vector2 offset,
+        ref bool useGlobalFont,
+        ref int fontFamilyId)
+    {
+        ImGui.Indent();
+
+        var localFontSize = fontSize;
+        if (ImGui.DragFloat($"Font Size##{categoryId}_{controlId}_font_size", ref localFontSize, 0.25f, 8f, 64f, "%.1f"))
+        {
+            fontSize = Math.Clamp(localFontSize, 8f, 64f);
+            this.onConfigChanged();
+        }
+
+        var localOffset = offset;
+        if (ImGui.DragFloat2($"Offset (X/Y)##{categoryId}_{controlId}_offset", ref localOffset, 0.5f, -600f, 600f, "%.1f"))
+        {
+            offset = localOffset;
+            this.onConfigChanged();
+        }
+
+        if (ImGui.Checkbox($"Use Global Default Font##{categoryId}_{controlId}_use_global_font", ref useGlobalFont))
+        {
+            this.onConfigChanged();
+        }
+
+        var (ids, labels) = GameFontRegistry.GetFontOptions();
+        var normalized = GameFontRegistry.NormalizeFamilyId(fontFamilyId);
+        var current = Array.IndexOf(ids, normalized);
+        if (current < 0)
+        {
+            current = 0;
+        }
+
+        if (useGlobalFont)
+        {
+            var resolvedGlobal = GameFontRegistry.NormalizeFamilyId(this.config.DefaultFontFamilyId);
+            var globalIndex = Array.IndexOf(ids, resolvedGlobal);
+            if (globalIndex < 0)
+            {
+                globalIndex = 0;
+            }
+
+            ImGui.TextColored(0xFF9AA1AB, $"Using Global Font: {labels[globalIndex]}");
+        }
+        else
+        {
+            if (ImGui.Combo($"Font##{categoryId}_{controlId}_font", ref current, labels, labels.Length))
+            {
+                var selectedId = current >= 0 && current < ids.Length ? ids[current] : 0;
+                fontFamilyId = GameFontRegistry.NormalizeFamilyId(selectedId);
+                this.onConfigChanged();
+            }
         }
 
         ImGui.Unindent();
@@ -789,6 +943,16 @@ public sealed class LayoutEditorWindow
         var clone = new CategoryVisualSettings
         {
             HealthBarEnabled = source.HealthBarEnabled,
+            BossShowHpValueText = source.BossShowHpValueText,
+            BossShowHpPercentText = source.BossShowHpPercentText,
+            BossHpValueTextFontSize = source.BossHpValueTextFontSize,
+            BossHpPercentTextFontSize = source.BossHpPercentTextFontSize,
+            BossHpValueTextOffset = source.BossHpValueTextOffset,
+            BossHpPercentTextOffset = source.BossHpPercentTextOffset,
+            BossHpValueTextUseGlobalFont = source.BossHpValueTextUseGlobalFont,
+            BossHpPercentTextUseGlobalFont = source.BossHpPercentTextUseGlobalFont,
+            BossHpValueTextFontFamilyId = source.BossHpValueTextFontFamilyId,
+            BossHpPercentTextFontFamilyId = source.BossHpPercentTextFontFamilyId,
             NameTextEnabled = source.NameTextEnabled,
             NameTextFontSize = source.NameTextFontSize,
             NameTextAlignment = source.NameTextAlignment,
@@ -825,6 +989,16 @@ public sealed class LayoutEditorWindow
     private static void ApplyVisualSettings(CategoryVisualSettings destination, CategoryVisualSettings source)
     {
         destination.HealthBarEnabled = source.HealthBarEnabled;
+        destination.BossShowHpValueText = source.BossShowHpValueText;
+        destination.BossShowHpPercentText = source.BossShowHpPercentText;
+        destination.BossHpValueTextFontSize = source.BossHpValueTextFontSize;
+        destination.BossHpPercentTextFontSize = source.BossHpPercentTextFontSize;
+        destination.BossHpValueTextOffset = source.BossHpValueTextOffset;
+        destination.BossHpPercentTextOffset = source.BossHpPercentTextOffset;
+        destination.BossHpValueTextUseGlobalFont = source.BossHpValueTextUseGlobalFont;
+        destination.BossHpPercentTextUseGlobalFont = source.BossHpPercentTextUseGlobalFont;
+        destination.BossHpValueTextFontFamilyId = source.BossHpValueTextFontFamilyId;
+        destination.BossHpPercentTextFontFamilyId = source.BossHpPercentTextFontFamilyId;
         destination.NameTextEnabled = source.NameTextEnabled;
         destination.NameTextFontSize = source.NameTextFontSize;
         destination.NameTextAlignment = source.NameTextAlignment;

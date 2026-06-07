@@ -57,6 +57,7 @@ public sealed class HealthBarWidget : INameplateWidget
             drawContext.DrawFilledRect(new Vector2(fillMax.X, min.Y), new Vector2(shieldMax, max.Y), 0x664AB3E8, radius);
         }
 
+        DrawBossHealthText(context, drawContext, min, max, currentRatio);
         DrawTargetIndicatorOverlay(context, drawContext, min, max);
     }
 
@@ -76,6 +77,7 @@ public sealed class HealthBarWidget : INameplateWidget
         var color = ApplyOpacity(targetCfg.Color, Math.Clamp(targetCfg.Opacity, 0f, 1f));
         var style = targetCfg.Style;
         var indicatorScale = Math.Clamp(targetCfg.Scale, 0.25f, 8f);
+        var indicatorOffset = targetCfg.Offset;
         var indicatorSize = new Vector2(
             Math.Max(4f, targetCfg.Size.X) * indicatorScale,
             Math.Max(4f, targetCfg.Size.Y) * indicatorScale);
@@ -90,8 +92,8 @@ public sealed class HealthBarWidget : INameplateWidget
                 var glowExpand = new Vector2(
                     MathF.Max(1f, indicatorSize.X * 0.08f),
                     MathF.Max(1f, indicatorSize.Y * 0.16f));
-                drawContext.DrawGlow(min - glowExpand, max + glowExpand, color, 2.5f * scale * indicatorScale);
-                drawContext.DrawBorder(min - glowExpand * 0.5f, max + glowExpand * 0.5f, color, 4f, 1.2f * indicatorScale);
+                drawContext.DrawGlow(min + indicatorOffset - glowExpand, max + indicatorOffset + glowExpand, color, 2.5f * scale * indicatorScale);
+                drawContext.DrawBorder(min + indicatorOffset - glowExpand * 0.5f, max + indicatorOffset + glowExpand * 0.5f, color, 4f, 1.2f * indicatorScale);
                 break;
 
             case TargetIndicatorStyle.TopArrow:
@@ -100,7 +102,7 @@ public sealed class HealthBarWidget : INameplateWidget
                 var fontSize = Math.Max(8f, indicatorSize.Y * 1.25f) * scale;
                 var pos = new Vector2(
                     min.X + (width * 0.5f) - (indicatorSize.X * 0.25f),
-                    min.Y - indicatorSize.Y);
+                    min.Y - indicatorSize.Y) + indicatorOffset;
                 drawContext.DrawText(pos + new Vector2(1f, 1f), 0xCC000000, "▼", fontSize);
                 drawContext.DrawText(pos, color, "▼", fontSize);
                 break;
@@ -110,8 +112,8 @@ public sealed class HealthBarWidget : INameplateWidget
             {
                 using var fontScope = GameFontRegistry.PushFont(context.FontFamilyId);
                 var fontSize = Math.Max(8f, indicatorSize.Y * 1.25f) * scale;
-                var leftPos = new Vector2(min.X - indicatorSize.X, centerY - (indicatorSize.Y * 0.5f));
-                var rightPos = new Vector2(max.X + (indicatorSize.X * 0.15f), centerY - (indicatorSize.Y * 0.5f));
+                var leftPos = new Vector2(min.X - indicatorSize.X, centerY - (indicatorSize.Y * 0.5f)) + indicatorOffset;
+                var rightPos = new Vector2(max.X + (indicatorSize.X * 0.15f), centerY - (indicatorSize.Y * 0.5f)) + indicatorOffset;
                 drawContext.DrawText(leftPos + new Vector2(1f, 1f), 0xCC000000, ">>", fontSize);
                 drawContext.DrawText(rightPos + new Vector2(1f, 1f), 0xCC000000, "<<", fontSize);
                 drawContext.DrawText(leftPos, color, ">>", fontSize);
@@ -124,8 +126,8 @@ public sealed class HealthBarWidget : INameplateWidget
             {
                 using var fontScope = GameFontRegistry.PushFont(context.FontFamilyId);
                 var fontSize = Math.Max(8f, indicatorSize.Y * 1.25f) * scale;
-                var leftPos = new Vector2(min.X - (indicatorSize.X * 0.65f), centerY - (indicatorSize.Y * 0.5f));
-                var rightPos = new Vector2(max.X + (indicatorSize.X * 0.08f), centerY - (indicatorSize.Y * 0.5f));
+                var leftPos = new Vector2(min.X - (indicatorSize.X * 0.65f), centerY - (indicatorSize.Y * 0.5f)) + indicatorOffset;
+                var rightPos = new Vector2(max.X + (indicatorSize.X * 0.08f), centerY - (indicatorSize.Y * 0.5f)) + indicatorOffset;
                 drawContext.DrawText(leftPos + new Vector2(1f, 1f), 0xCC000000, ">", fontSize);
                 drawContext.DrawText(rightPos + new Vector2(1f, 1f), 0xCC000000, "<", fontSize);
                 drawContext.DrawText(leftPos, color, ">", fontSize);
@@ -139,5 +141,55 @@ public sealed class HealthBarWidget : INameplateWidget
     {
         var alpha = (uint)Math.Clamp((int)MathF.Round(((color >> 24) & 0xFF) * opacity), 0, 255);
         return (color & 0x00FFFFFF) | (alpha << 24);
+    }
+
+    private static void DrawBossHealthText(
+        NameplateContext context,
+        DrawContext drawContext,
+        Vector2 min,
+        Vector2 max,
+        float currentRatio)
+    {
+        if (!context.IsBoss)
+        {
+            return;
+        }
+
+        var showValue = context.CategoryVisual.BossShowHpValueText;
+        var showPercent = context.CategoryVisual.BossShowHpPercentText;
+        if (!showValue && !showPercent)
+        {
+            return;
+        }
+
+        if (showValue)
+        {
+            var valueText = $"{context.Tracked.CurrentHp:N0}/{context.Tracked.MaxHp:N0}";
+            var valueFontSize = Math.Max(8f, context.CategoryVisual.BossHpValueTextFontSize) * Math.Clamp(context.GlobalScale, 0.5f, 2.5f);
+            var valueUseGlobalFont = context.CategoryVisual.BossHpValueTextUseGlobalFont ?? context.CategoryVisual.BossHpValueTextFontFamilyId == 0;
+            var valueFontId = valueUseGlobalFont
+                ? context.FontFamilyId
+                : GameFontRegistry.NormalizeFamilyId(context.CategoryVisual.BossHpValueTextFontFamilyId);
+            var valueOffset = context.CategoryVisual.BossHpValueTextOffset;
+            var valuePos = new Vector2(min.X + valueOffset.X, min.Y + valueOffset.Y);
+            using var valueFontScope = GameFontRegistry.PushFont(valueFontId);
+            drawContext.DrawText(valuePos + new Vector2(1f, 1f), 0xCC000000, valueText, valueFontSize);
+            drawContext.DrawText(valuePos, 0xFFEAEAEA, valueText, valueFontSize);
+        }
+
+        if (showPercent)
+        {
+            var percentText = $"{MathF.Round(currentRatio * 100f):0.#}%";
+            var percentFontSize = Math.Max(8f, context.CategoryVisual.BossHpPercentTextFontSize) * Math.Clamp(context.GlobalScale, 0.5f, 2.5f);
+            var percentUseGlobalFont = context.CategoryVisual.BossHpPercentTextUseGlobalFont ?? context.CategoryVisual.BossHpPercentTextFontFamilyId == 0;
+            var percentFontId = percentUseGlobalFont
+                ? context.FontFamilyId
+                : GameFontRegistry.NormalizeFamilyId(context.CategoryVisual.BossHpPercentTextFontFamilyId);
+            var percentOffset = context.CategoryVisual.BossHpPercentTextOffset;
+            var percentPos = new Vector2(max.X + percentOffset.X, min.Y + percentOffset.Y);
+            using var percentFontScope = GameFontRegistry.PushFont(percentFontId);
+            drawContext.DrawText(percentPos + new Vector2(1f, 1f), 0xCC000000, percentText, percentFontSize);
+            drawContext.DrawText(percentPos, 0xFFEAEAEA, percentText, percentFontSize);
+        }
     }
 }

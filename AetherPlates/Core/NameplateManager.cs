@@ -5,6 +5,9 @@ using Dalamud.Game.Gui.NamePlate;
 using Dalamud.Game.ClientState.Objects.Enums;
 using Dalamud.Plugin.Services;
 using System.Numerics;
+using FFXIVClientStructs.FFXIV.Component.GUI;
+using StructsGameObject = FFXIVClientStructs.FFXIV.Client.Game.Object.GameObject;
+using StructsVector3 = FFXIVClientStructs.FFXIV.Common.Math.Vector3;
 using ObjectKind = Dalamud.Game.ClientState.Objects.Enums.ObjectKind;
 
 namespace FFXIVHudPlugin.AetherPlates.Core;
@@ -33,6 +36,7 @@ public sealed class NameplateManager
         EnemyUnclaimed,
         EnemyFeast,
         EnemyFeastPet,
+        Boss,
         Npc,
         Object,
         Minion,
@@ -108,6 +112,8 @@ public sealed class NameplateManager
             }
         }
         this.currentObjectsById = ownerLookup;
+        var primaryBossObjectId = this.ResolvePrimaryBossObjectId(tracked, localPlayerId, ownerLookup);
+        var bossEncounterActive = primaryBossObjectId != 0;
 
         for (var i = 0; i < tracked.Count; i++)
         {
@@ -119,6 +125,18 @@ public sealed class NameplateManager
 
             var nativeKind = this.nativeAnchorService.TryGetKind(obj.ObjectId, out var plateKind) ? plateKind : (NamePlateKind?)null;
             var category = NameplateCategoryResolver.ResolveForTrackedObject(obj, localPlayerId, nativeKind, ownerLookup);
+            var isBossCandidate = bossEncounterActive && IsBossCategoryCandidate(obj, category);
+            if (isBossCandidate)
+            {
+                if (obj.ObjectId != primaryBossObjectId)
+                {
+                    // During boss encounters, boss-type enemies are only rendered via Bosses (Target Bar),
+                    // never through the normal enemy categories.
+                    continue;
+                }
+
+                category = NameplateCategory.Boss;
+            }
             if (!this.IsCategoryEnabled(category))
             {
                 continue;
@@ -137,7 +155,8 @@ public sealed class NameplateManager
                 or NameplateCategory.EnemyClaimed
                 or NameplateCategory.EnemyUnclaimed
                 or NameplateCategory.EnemyFeast
-                or NameplateCategory.EnemyFeastPet;
+                or NameplateCategory.EnemyFeastPet
+                or NameplateCategory.Boss;
             var isFriendly = !isHostile && category != NameplateCategory.Self;
 
             if (this.configuration.EnableDistanceCulling &&
@@ -146,7 +165,7 @@ public sealed class NameplateManager
                 continue;
             }
 
-            if (!this.TryResolveAnchor(obj, offset, out var screen))
+            if (!this.TryResolveAnchor(obj, category, offset, out var screen))
             {
                 continue;
             }
@@ -172,7 +191,7 @@ public sealed class NameplateManager
                 this.configuration.TemporaryGlobalScale,
                 obj.IsTarget,
                 obj.IsFocusTarget,
-                false,
+                category == NameplateCategory.Boss,
                 obj.IsPartyMember,
                 obj.IsAllianceMember,
                 isHostile,
@@ -226,7 +245,8 @@ public sealed class NameplateManager
             or NameplateCategory.EnemyClaimed
             or NameplateCategory.EnemyUnclaimed
             or NameplateCategory.EnemyFeast
-            or NameplateCategory.EnemyFeastPet || isHostile)
+            or NameplateCategory.EnemyFeastPet
+            or NameplateCategory.Boss || isHostile)
         {
             return true;
         }
@@ -264,6 +284,7 @@ public sealed class NameplateManager
             NameplateCategory.EnemyUnclaimed => c.EnemyUnclaimed,
             NameplateCategory.EnemyFeast => c.EnemyFeast,
             NameplateCategory.EnemyFeastPet => c.EnemyFeastPet,
+            NameplateCategory.Boss => c.Boss,
             NameplateCategory.Npc => c.Npc,
             NameplateCategory.Object => c.Object,
             NameplateCategory.Minion => c.Minion,
@@ -275,9 +296,33 @@ public sealed class NameplateManager
         };
     }
 
-    private bool TryResolveAnchor(TrackedObject obj, Vector3 offset, out Vector2 screen)
+    private bool TryResolveAnchor(TrackedObject obj, NameplateCategory category, Vector3 offset, out Vector2 screen)
     {
         screen = default;
+        if (category == NameplateCategory.Boss)
+        {
+            screen = ResolveScreenCenterAnchor(this.configuration.BossTargetBarAnchorOffset);
+            return this.IsValidAnchor(screen);
+        }
+
+        // Highest-priority non-boss anchor: game's own nameplate world position for this actor.
+        if (TryGetNativeWorldNameplatePosition(obj, out var nativeWorldPos) &&
+            this.projectionService.WorldToScreen(nativeWorldPos, out var nativeWorldScreen) &&
+            this.IsValidAnchor(nativeWorldScreen))
+        {
+            screen = nativeWorldScreen;
+            return true;
+        }
+
+        // For all non-boss categories, follow the game's native nameplate anchor directly.
+        // This guarantees our plate sits where the native plate sits.
+        if (this.nativeAnchorService.TryGetAnchor(obj.ObjectId, out var nativeOnlyScreen) &&
+            this.IsValidAnchor(nativeOnlyScreen))
+        {
+            screen = nativeOnlyScreen;
+            return true;
+        }
+
         var projectionY = this.GetAutoProjectionYOffset(obj, offset);
         var projectionOffset = new Vector3(0f, projectionY, 0f);
 
@@ -328,21 +373,226 @@ public sealed class NameplateManager
         return false;
     }
 
+    private static unsafe bool TryGetNativeWorldNameplatePosition(TrackedObject obj, out Vector3 worldPosition)
+    {
+        worldPosition = default;
+        if (obj.Address == nint.Zero)
+        {
+            return false;
+        }
+
+        var nativeObject = (StructsGameObject*)obj.Address;
+        if (nativeObject == null)
+        {
+            return false;
+        }
+
+        var world = default(StructsVector3);
+        nativeObject->GetNamePlateWorldPosition(&world);
+        worldPosition = new Vector3(world.X, world.Y, world.Z);
+        return float.IsFinite(worldPosition.X) &&
+               float.IsFinite(worldPosition.Y) &&
+               float.IsFinite(worldPosition.Z);
+    }
+
+    private unsafe bool TryResolveTargetBarAnchor(out Vector2 screen)
+    {
+        screen = default;
+        var stage = AtkStage.Instance();
+        if (stage is null)
+        {
+            return false;
+        }
+
+        var addon = stage->RaptureAtkUnitManager->GetAddonByName("_TargetInfo", 1);
+        if (addon is null || addon->RootNode is null || !addon->IsVisible)
+        {
+            return false;
+        }
+
+        var root = addon->RootNode;
+        var width = root->Width * MathF.Max(root->ScaleX, 0.01f);
+        var x = root->GetXFloat();
+        var y = root->GetYFloat();
+        if (!float.IsFinite(x) || !float.IsFinite(y) || width <= 1f)
+        {
+            return false;
+        }
+
+        screen = new Vector2(x + (width * 0.5f), y - 18f);
+        return this.IsValidAnchor(screen);
+    }
+
+    private static Vector2 ResolveScreenCenterAnchor(Vector2 offsetFromCenter)
+    {
+        var viewport = Dalamud.Bindings.ImGui.ImGui.GetMainViewport();
+        if (viewport.Size.X <= 0f || viewport.Size.Y <= 0f)
+        {
+            return offsetFromCenter;
+        }
+
+        var center = viewport.Pos + (viewport.Size * 0.5f);
+        return center + offsetFromCenter;
+    }
+
     private float GetAutoProjectionYOffset(TrackedObject obj, Vector3 offset)
     {
-        var baseModelOffset = obj.Height > 0.01f
-            ? obj.Height * 2.2f
-            : 2.0f;
+        var baseModelOffset = GetBaseModelProjectionYOffset(obj);
         var fallbackBias = MathF.Max(0f, offset.Y);
         // Auto-Y priority: model-derived head anchor with fallback bias.
         return MathF.Max(baseModelOffset, fallbackBias);
     }
 
+    private ulong ResolvePrimaryBossObjectId(
+        IReadOnlyList<TrackedObject> tracked,
+        ulong localPlayerId,
+        IReadOnlyDictionary<ulong, TrackedObject> ownerLookup)
+    {
+        TrackedObject? best = null;
+        var secondBestMaxHp = 0u;
+        for (var i = 0; i < tracked.Count; i++)
+        {
+            var obj = tracked[i];
+            if (!ShouldRenderObject(obj))
+            {
+                continue;
+            }
+
+            var nativeKind = this.nativeAnchorService.TryGetKind(obj.ObjectId, out var plateKind) ? plateKind : (NamePlateKind?)null;
+            var category = NameplateCategoryResolver.ResolveForTrackedObject(obj, localPlayerId, nativeKind, ownerLookup);
+            if (!IsBossCategoryCandidate(obj, category))
+            {
+                continue;
+            }
+
+            if (best is null)
+            {
+                best = obj;
+                continue;
+            }
+
+            if (obj.IsTarget && !best.IsTarget)
+            {
+                secondBestMaxHp = Math.Max(secondBestMaxHp, best.MaxHp);
+                best = obj;
+                continue;
+            }
+
+            if (obj.IsTarget == best.IsTarget)
+            {
+                var objCombatWeight = GetEnemyStatePriority(obj.EnemyState);
+                var bestCombatWeight = GetEnemyStatePriority(best.EnemyState);
+                if (objCombatWeight > bestCombatWeight)
+                {
+                    secondBestMaxHp = Math.Max(secondBestMaxHp, best.MaxHp);
+                    best = obj;
+                    continue;
+                }
+
+                if (objCombatWeight == bestCombatWeight)
+                {
+                    if (obj.MaxHp > best.MaxHp)
+                    {
+                        secondBestMaxHp = Math.Max(secondBestMaxHp, best.MaxHp);
+                        best = obj;
+                        continue;
+                    }
+
+                    if (obj.MaxHp == best.MaxHp && obj.Height > best.Height)
+                    {
+                        best = obj;
+                    }
+                }
+            }
+
+            if (best is not null && obj.ObjectId != best.ObjectId)
+            {
+                secondBestMaxHp = Math.Max(secondBestMaxHp, obj.MaxHp);
+            }
+        }
+
+        if (best is null)
+        {
+            return 0;
+        }
+
+        if (IsConfirmedBossByStats(best))
+        {
+            return best.ObjectId;
+        }
+
+        // Fallback: allow boss routing when a clearly dominant target exists over surrounding enemies.
+        if (best.IsTarget &&
+            best.MaxHp >= 1_300_000 &&
+            best.MaxHp >= (uint)Math.Ceiling(Math.Max(1u, secondBestMaxHp) * 2.0))
+        {
+            return best.ObjectId;
+        }
+
+        return 0;
+    }
+
+    private static int GetEnemyStatePriority(EnemyNameplateState state)
+    {
+        return state switch
+        {
+            EnemyNameplateState.Engaged => 3,
+            EnemyNameplateState.Claimed => 2,
+            EnemyNameplateState.Unclaimed => 2,
+            EnemyNameplateState.Unengaged => 1,
+            EnemyNameplateState.Feast => 1,
+            EnemyNameplateState.FeastPet => 0,
+            _ => 0,
+        };
+    }
+
+    private static bool IsBossCategoryCandidate(TrackedObject obj, NameplateCategory initialCategory)
+    {
+        if (initialCategory is not NameplateCategory.EnemyUnengaged
+            and not NameplateCategory.EnemyEngaged
+            and not NameplateCategory.EnemyClaimed
+            and not NameplateCategory.EnemyUnclaimed
+            and not NameplateCategory.EnemyFeast
+            and not NameplateCategory.EnemyFeastPet)
+        {
+            return false;
+        }
+
+        if (!obj.Targetable || obj.CurrentHp == 0 || obj.MaxHp == 0)
+        {
+            return false;
+        }
+
+        // Prefer native game-provided classification: nameplate icon IDs are used for special enemy markers.
+        // Non-zero here is a much stronger signal than HP/height alone.
+        if (obj.NameplateIconId != 0)
+        {
+            return true;
+        }
+
+        // Broad pre-filter; final confirmation is done by ResolvePrimaryBossObjectId().
+        return obj.MaxHp >= 900_000 || obj.Height >= 5.5f;
+    }
+
+    private static bool IsConfirmedBossByStats(TrackedObject obj)
+    {
+        if (obj.NameplateIconId != 0)
+        {
+            return true;
+        }
+
+        // Conservative thresholds to avoid dungeon trash being treated as bosses.
+        if (obj.MaxHp >= 2_000_000)
+        {
+            return true;
+        }
+
+        return obj.Height >= 6.5f && obj.MaxHp >= 900_000;
+    }
+
     private void UpdateProjectionCalibration(TrackedObject obj, Vector2 nativeScreen, Vector3 offset)
     {
-        var baseModelOffset = obj.Height > 0.01f
-            ? obj.Height * 2.2f
-            : 2.0f;
+        var baseModelOffset = GetBaseModelProjectionYOffset(obj);
         var fallbackBias = MathF.Max(0f, offset.Y);
         var currentProjectionY = MathF.Max(baseModelOffset, fallbackBias);
         if (!this.projectionService.WorldToScreen(obj.Position + new Vector3(0f, currentProjectionY, 0f), out var projectedScreen) ||
@@ -364,6 +614,25 @@ public sealed class NameplateManager
 
         // Smooth calibration to avoid noisy single-frame spikes.
         cache.CalibratedScreenYOffset = (cache.CalibratedScreenYOffset * 0.85f) + (deltaY * 0.15f);
+    }
+
+    private static float GetBaseModelProjectionYOffset(TrackedObject obj)
+    {
+        var isBattleNpc = obj.Kind == ObjectKind.BattleNpc;
+        if (obj.Height <= 0.01f)
+        {
+            return isBattleNpc ? 2.8f : 2.0f;
+        }
+
+        // Battle NPCs tend to report lower capsule/height values relative to visual head position.
+        var multiplier = isBattleNpc ? 2.85f : 2.2f;
+        var projected = obj.Height * multiplier;
+        if (isBattleNpc)
+        {
+            projected = MathF.Max(projected, 3.0f);
+        }
+
+        return projected;
     }
 
     private static bool ShouldRenderObject(TrackedObject obj)

@@ -247,6 +247,7 @@ public sealed class ConfigWindow
                 DrawCategorySection("Unclaimed Enemies", "enemy_unclaimed", NameplateManager.NameplateCategory.EnemyUnclaimed, () => v.EnemyUnclaimed, value => v.EnemyUnclaimed = value, this.config.EnemyUnclaimedVisual);
                 DrawCategorySection("Feast Enemies", "enemy_feast", NameplateManager.NameplateCategory.EnemyFeast, () => v.EnemyFeast, value => v.EnemyFeast = value, this.config.EnemyFeastVisual);
                 DrawCategorySection("Feast Enemy Pets", "enemy_feast_pet", NameplateManager.NameplateCategory.EnemyFeastPet, () => v.EnemyFeastPet, value => v.EnemyFeastPet = value, this.config.EnemyFeastPetVisual);
+                DrawCategorySection("Bosses (Target Bar)", "boss", NameplateManager.NameplateCategory.Boss, () => v.Boss, value => v.Boss = value, this.config.BossVisual);
                 DrawCategorySection("NPCs", "npc", NameplateManager.NameplateCategory.Npc, () => v.Npc, value => v.Npc = value, this.config.NpcVisual);
                 DrawCategorySection("Objects", "object", NameplateManager.NameplateCategory.Object, () => v.Object, value => v.Object = value, this.config.ObjectVisual);
                 DrawCategorySection("Minions", "minion", NameplateManager.NameplateCategory.Minion, () => v.Minion, value => v.Minion = value, this.config.MinionVisual);

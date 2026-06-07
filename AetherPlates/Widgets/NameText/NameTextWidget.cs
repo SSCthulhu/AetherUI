@@ -36,8 +36,8 @@ public sealed class NameTextWidget : INameplateWidget
         var alignedX = align switch
         {
             NameplateTextAlignment.Left => layout.Position.X,
-            NameplateTextAlignment.Right => layout.Position.X + MathF.Max(0f, layout.Size.X - textSize.X),
-            _ => layout.Position.X + MathF.Max(0f, (layout.Size.X - textSize.X) * 0.5f),
+            NameplateTextAlignment.Right => layout.Position.X + (layout.Size.X - textSize.X),
+            _ => layout.Position.X + ((layout.Size.X - textSize.X) * 0.5f),
         };
         var pos = new Vector2(
             alignedX,

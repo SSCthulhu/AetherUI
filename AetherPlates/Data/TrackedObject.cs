@@ -39,6 +39,7 @@ public sealed record TrackedObject(
     EnemyNameplateState EnemyState,
     ulong OwnerId,
     byte SubKind,
+    uint NameplateIconId,
     bool IsPlayerCharacter,
     IReadOnlyList<StatusSnapshot> Statuses,
     CastSnapshot CastInfo);

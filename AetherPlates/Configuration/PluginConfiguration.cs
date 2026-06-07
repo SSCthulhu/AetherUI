@@ -18,6 +18,7 @@ public sealed class PluginConfiguration
     public bool EnableDynamicCombatRange { get; set; } = false;
     public float CombatEnemyMaxDistanceYalms { get; set; } = 45f;
     public float CombatFriendlyMaxDistanceYalms { get; set; } = 32f;
+    public System.Numerics.Vector2 BossTargetBarAnchorOffset { get; set; } = new(0f, 0f);
     public int DefaultFontFamilyId { get; set; } = 0;
     public NameplateCategoryVisibility CategoryVisibility { get; set; } = new();
     public CategoryVisualSettings SelfVisual { get; set; } = CategoryVisualSettings.CreateDefault();
@@ -40,6 +41,7 @@ public sealed class PluginConfiguration
     public CategoryVisualSettings EnemyUnclaimedVisual { get; set; } = CategoryVisualSettings.CreateDefault();
     public CategoryVisualSettings EnemyFeastVisual { get; set; } = CategoryVisualSettings.CreateDefault();
     public CategoryVisualSettings EnemyFeastPetVisual { get; set; } = CategoryVisualSettings.CreateDefault();
+    public CategoryVisualSettings BossVisual { get; set; } = CategoryVisualSettings.CreateDefault();
     public CategoryVisualSettings NpcVisual { get; set; } = CategoryVisualSettings.CreateDefault();
     public CategoryVisualSettings ObjectVisual { get; set; } = CategoryVisualSettings.CreateDefault();
     public CategoryVisualSettings MinionVisual { get; set; } = CategoryVisualSettings.CreateDefault();
@@ -121,6 +123,7 @@ public sealed class PluginConfiguration
             Core.NameplateManager.NameplateCategory.EnemyUnclaimed => this.EnemyUnclaimedVisual,
             Core.NameplateManager.NameplateCategory.EnemyFeast => this.EnemyFeastVisual,
             Core.NameplateManager.NameplateCategory.EnemyFeastPet => this.EnemyFeastPetVisual,
+            Core.NameplateManager.NameplateCategory.Boss => this.BossVisual,
             Core.NameplateManager.NameplateCategory.Npc => this.NpcVisual,
             Core.NameplateManager.NameplateCategory.Object => this.ObjectVisual,
             Core.NameplateManager.NameplateCategory.Minion => this.MinionVisual,
@@ -141,6 +144,10 @@ public sealed class PluginConfiguration
     private void EnsureCategoryVisualDefaults()
     {
         this.DefaultFontFamilyId = Math.Max(0, this.DefaultFontFamilyId);
+        if (!float.IsFinite(this.BossTargetBarAnchorOffset.X) || !float.IsFinite(this.BossTargetBarAnchorOffset.Y))
+        {
+            this.BossTargetBarAnchorOffset = System.Numerics.Vector2.Zero;
+        }
         this.SelfVisual ??= CategoryVisualSettings.CreateDefault();
         this.SelfCompanionVisual ??= CategoryVisualSettings.CreateDefault();
         this.SelfPetVisual ??= CategoryVisualSettings.CreateDefault();
@@ -161,6 +168,7 @@ public sealed class PluginConfiguration
         this.EnemyUnclaimedVisual ??= CategoryVisualSettings.CreateDefault();
         this.EnemyFeastVisual ??= CategoryVisualSettings.CreateDefault();
         this.EnemyFeastPetVisual ??= CategoryVisualSettings.CreateDefault();
+        this.BossVisual ??= CategoryVisualSettings.CreateDefault();
         this.NpcVisual ??= CategoryVisualSettings.CreateDefault();
         this.ObjectVisual ??= CategoryVisualSettings.CreateDefault();
         this.MinionVisual ??= CategoryVisualSettings.CreateDefault();
@@ -187,6 +195,7 @@ public sealed class PluginConfiguration
         this.EnemyUnclaimedVisual.EnsureDefaults();
         this.EnemyFeastVisual.EnsureDefaults();
         this.EnemyFeastPetVisual.EnsureDefaults();
+        this.BossVisual.EnsureDefaults();
         this.NpcVisual.EnsureDefaults();
         this.ObjectVisual.EnsureDefaults();
         this.MinionVisual.EnsureDefaults();
@@ -212,6 +221,10 @@ public sealed class PluginConfiguration
         profile.TargetIndicator ??= new TargetIndicatorWidgetConfig();
         profile.TargetIndicator.Opacity = Math.Clamp(profile.TargetIndicator.Opacity, 0f, 1f);
         profile.TargetIndicator.Scale = Math.Clamp(profile.TargetIndicator.Scale, 0.25f, 8f);
+        if (!float.IsFinite(profile.TargetIndicator.Offset.X) || !float.IsFinite(profile.TargetIndicator.Offset.Y))
+        {
+            profile.TargetIndicator.Offset = System.Numerics.Vector2.Zero;
+        }
         profile.TargetIndicator.Size = new System.Numerics.Vector2(
             Math.Max(4f, profile.TargetIndicator.Size.X),
             Math.Max(4f, profile.TargetIndicator.Size.Y));
@@ -370,6 +383,7 @@ public sealed class NameplateCategoryVisibility
     public bool EnemyUnclaimed { get; set; } = true;
     public bool EnemyFeast { get; set; } = true;
     public bool EnemyFeastPet { get; set; } = true;
+    public bool Boss { get; set; } = true;
     public bool Npc { get; set; } = true;
     public bool Object { get; set; } = true;
     public bool Minion { get; set; } = true;
@@ -378,7 +392,7 @@ public sealed class NameplateCategoryVisibility
 
     public bool IsAnyEnemyEnabled()
     {
-        return this.EnemyUnengaged || this.EnemyEngaged || this.EnemyClaimed || this.EnemyUnclaimed || this.EnemyFeast || this.EnemyFeastPet;
+        return this.EnemyUnengaged || this.EnemyEngaged || this.EnemyClaimed || this.EnemyUnclaimed || this.EnemyFeast || this.EnemyFeastPet || this.Boss;
     }
 
     public bool IsAnyEnabled()
@@ -427,6 +441,7 @@ public sealed class NameplateCategoryVisibility
                this.EnemyUnclaimed &&
                this.EnemyFeast &&
                this.EnemyFeastPet &&
+               this.Boss &&
                this.Npc &&
                this.Object &&
                this.Minion &&
@@ -499,6 +514,7 @@ public sealed class TargetIndicatorWidgetConfig
     public float Opacity { get; set; } = 1.0f;
     public System.Numerics.Vector2 Size { get; set; } = new(24f, 12f);
     public float Scale { get; set; } = 1.0f;
+    public System.Numerics.Vector2 Offset { get; set; } = new(0f, 0f);
 }
 
 public enum TargetIndicatorStyle
@@ -557,6 +573,16 @@ public sealed class DebuffRowWidgetConfig
 public sealed class CategoryVisualSettings
 {
     public bool HealthBarEnabled { get; set; } = true;
+    public bool BossShowHpValueText { get; set; } = false;
+    public bool BossShowHpPercentText { get; set; } = false;
+    public float BossHpValueTextFontSize { get; set; } = 14f;
+    public float BossHpPercentTextFontSize { get; set; } = 14f;
+    public System.Numerics.Vector2 BossHpValueTextOffset { get; set; } = new(6f, -20f);
+    public System.Numerics.Vector2 BossHpPercentTextOffset { get; set; } = new(-44f, -20f);
+    public bool? BossHpValueTextUseGlobalFont { get; set; } = null;
+    public bool? BossHpPercentTextUseGlobalFont { get; set; } = null;
+    public int BossHpValueTextFontFamilyId { get; set; } = 0;
+    public int BossHpPercentTextFontFamilyId { get; set; } = 0;
     public bool NameTextEnabled { get; set; } = true;
     public float NameTextFontSize { get; set; } = 16f;
     public NameplateTextAlignment NameTextAlignment { get; set; } = NameplateTextAlignment.Center;
@@ -598,6 +624,19 @@ public sealed class CategoryVisualSettings
         const float buffDebuffBaseHeight = 20f;
         this.WidgetLayouts ??= new Dictionary<string, WidgetLayoutRule>(StringComparer.Ordinal);
         this.FontFamilyId = Math.Max(0, this.FontFamilyId);
+        this.BossHpValueTextFontFamilyId = Math.Max(0, this.BossHpValueTextFontFamilyId);
+        this.BossHpPercentTextFontFamilyId = Math.Max(0, this.BossHpPercentTextFontFamilyId);
+        this.BossHpValueTextFontSize = Math.Clamp(this.BossHpValueTextFontSize, 8f, 64f);
+        this.BossHpPercentTextFontSize = Math.Clamp(this.BossHpPercentTextFontSize, 8f, 64f);
+        if (!float.IsFinite(this.BossHpValueTextOffset.X) || !float.IsFinite(this.BossHpValueTextOffset.Y))
+        {
+            this.BossHpValueTextOffset = new System.Numerics.Vector2(6f, -20f);
+        }
+
+        if (!float.IsFinite(this.BossHpPercentTextOffset.X) || !float.IsFinite(this.BossHpPercentTextOffset.Y))
+        {
+            this.BossHpPercentTextOffset = new System.Numerics.Vector2(-44f, -20f);
+        }
         this.NameTextFontSize = Math.Clamp(this.NameTextFontSize, 8f, 64f);
         this.CastBarTextFontSize = Math.Clamp(this.CastBarTextFontSize, 8f, 64f);
         if (!Enum.IsDefined(typeof(NameplateTextAlignment), this.NameTextAlignment))

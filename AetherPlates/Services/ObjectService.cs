@@ -111,6 +111,7 @@ public sealed class ObjectService
         var cast = character is null
             ? new CastSnapshot(false, string.Empty, 0f, 0f, false)
             : BuildCastSnapshot(character, this.dataManager);
+        var nameplateIconId = ResolveNameplateIconId(obj);
 
         var isFriendly = isPlayerCharacter ||
                          isPartyMember ||
@@ -148,10 +149,22 @@ public sealed class ObjectService
             enemyState,
             obj.OwnerId,
             obj.SubKind,
+            nameplateIconId,
             isPlayerCharacter,
             statuses,
             cast);
         return true;
+    }
+
+    private static unsafe uint ResolveNameplateIconId(IGameObject obj)
+    {
+        if (obj.Address == nint.Zero)
+        {
+            return 0u;
+        }
+
+        var nativeObject = (StructsGameObject*)obj.Address;
+        return nativeObject is null ? 0u : nativeObject->NamePlateIconId;
     }
 
     private static bool ShouldTrackObject(IGameObject obj)
