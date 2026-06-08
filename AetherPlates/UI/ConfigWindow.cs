@@ -17,6 +17,7 @@ public sealed class ConfigWindow
     private string debuffWhitelistInput = string.Empty;
     private string debuffBlacklistInput = string.Empty;
     private GroupTab selectedGroupTab = GroupTab.Own;
+    private GeneralSessionBaseline generalBaseline;
 
     public ConfigWindow(
         PluginConfiguration config,
@@ -40,6 +41,13 @@ public sealed class ConfigWindow
     public void DrawGeneralSettingsSection()
     {
         ImGui.TextUnformatted("Nameplate General Settings");
+        if (ImGui.Button("Reset to Opened Values##NameplateGeneral"))
+        {
+            this.ResetGeneralSettings();
+            this.onConfigChanged();
+        }
+        ImGui.SameLine();
+        ImGui.TextColored(0xFF9AA1AB, "Changes save automatically.");
         ImGui.Separator();
         ImGui.Spacing();
 
@@ -175,6 +183,39 @@ public sealed class ConfigWindow
         ImGui.TextColored(0xFF9AA1AB, "Per-category widget visibility and layout are configured in Category Designer.");
     }
 
+    private void ResetGeneralSettings()
+    {
+        this.config.Enabled = this.generalBaseline.Enabled;
+        this.config.TemporaryGlobalScale = this.generalBaseline.TemporaryGlobalScale;
+        this.config.EnableDistanceCulling = this.generalBaseline.EnableDistanceCulling;
+        this.config.EnemyMaxDistanceYalms = this.generalBaseline.EnemyMaxDistanceYalms;
+        this.config.FriendlyMaxDistanceYalms = this.generalBaseline.FriendlyMaxDistanceYalms;
+        this.config.PlayerMaxDistanceYalms = this.generalBaseline.PlayerMaxDistanceYalms;
+        this.config.EnableDynamicCombatRange = this.generalBaseline.EnableDynamicCombatRange;
+        this.config.CombatEnemyMaxDistanceYalms = this.generalBaseline.CombatEnemyMaxDistanceYalms;
+        this.config.CombatFriendlyMaxDistanceYalms = this.generalBaseline.CombatFriendlyMaxDistanceYalms;
+        this.config.EnableOcclusionCulling = this.generalBaseline.EnableOcclusionCulling;
+        this.config.OcclusionMode = this.generalBaseline.OcclusionMode;
+        this.config.OcclusionType = this.generalBaseline.OcclusionType;
+    }
+
+    public void CaptureSessionBaselines()
+    {
+        this.generalBaseline = new GeneralSessionBaseline(
+            this.config.Enabled,
+            this.config.TemporaryGlobalScale,
+            this.config.EnableDistanceCulling,
+            this.config.EnemyMaxDistanceYalms,
+            this.config.FriendlyMaxDistanceYalms,
+            this.config.PlayerMaxDistanceYalms,
+            this.config.EnableDynamicCombatRange,
+            this.config.CombatEnemyMaxDistanceYalms,
+            this.config.CombatFriendlyMaxDistanceYalms,
+            this.config.EnableOcclusionCulling,
+            this.config.OcclusionMode,
+            this.config.OcclusionType);
+    }
+
     public void DrawCategoryDesignerSection()
     {
         this.DrawAdvancedCategoryMapping();
@@ -243,6 +284,20 @@ public sealed class ConfigWindow
 
         ImGui.TextColored(0xFF9AA1AB, "Categories can inherit this font or override it in Designer.");
     }
+
+    private readonly record struct GeneralSessionBaseline(
+        bool Enabled,
+        float TemporaryGlobalScale,
+        bool EnableDistanceCulling,
+        float EnemyMaxDistanceYalms,
+        float FriendlyMaxDistanceYalms,
+        float PlayerMaxDistanceYalms,
+        bool EnableDynamicCombatRange,
+        float CombatEnemyMaxDistanceYalms,
+        float CombatFriendlyMaxDistanceYalms,
+        bool EnableOcclusionCulling,
+        NameplateOcclusionMode OcclusionMode,
+        NameplateOcclusionType OcclusionType);
 
     private void DrawAdvancedCategoryMapping()
     {

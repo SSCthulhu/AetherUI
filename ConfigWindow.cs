@@ -22,6 +22,15 @@ public sealed class ConfigWindow
     private bool requestOpenDeleteCustomLayoutPopup;
     private bool requestOpenDeleteAllCustomLayoutsPopup;
     private ConfigBucket selectedBucket = ConfigBucket.HudLayout;
+    private bool wasWindowOpenLastFrame;
+    private HudGeneralSessionBaseline hudGeneralBaseline;
+    private HudOrbSessionBaseline hudOrbBaseline;
+    private HotbarSessionBaseline hotbarBaseline;
+    private BuffDebuffSessionBaseline buffDebuffBaseline;
+    private MinimapGeneralSessionBaseline minimapGeneralBaseline;
+    private MinimapLayoutSessionBaseline minimapLayoutBaseline;
+    private MinimapMarkersSessionBaseline minimapMarkersBaseline;
+    private ActionCameraSessionBaseline actionCameraBaseline;
 
     public ConfigWindow(
         HudConfiguration config,
@@ -45,6 +54,7 @@ public sealed class ConfigWindow
     {
         if (!this.IsOpen)
         {
+            this.wasWindowOpenLastFrame = false;
             return;
         }
 
@@ -68,6 +78,11 @@ public sealed class ConfigWindow
             }
 
             this.IsOpen = isOpen;
+            if (!this.wasWindowOpenLastFrame)
+            {
+                this.CaptureSessionBaselines();
+                this.wasWindowOpenLastFrame = true;
+            }
 
             ImGui.BeginChild("##ConfigNavSidebar", new Vector2(NavSidebarWidth, 0f), false);
             this.DrawSettingsNavSidebar();
@@ -87,6 +102,10 @@ public sealed class ConfigWindow
             this.DrawDeleteCustomLayoutConfirmPopup();
             this.DrawDeleteAllCustomLayoutsConfirmPopup();
             ImGui.End();
+            if (!this.IsOpen)
+            {
+                this.wasWindowOpenLastFrame = false;
+            }
         }
         finally
         {
@@ -258,6 +277,12 @@ public sealed class ConfigWindow
     private void DrawActionCameraSettingsTab()
     {
         ImGui.TextUnformatted("Action Camera");
+        if (ImGui.Button("Reset to Opened Values##ActionCameraGeneral"))
+        {
+            this.ResetActionCameraGeneralSettings();
+        }
+        ImGui.SameLine();
+        ImGui.TextColored(0xFF9AA1AB, "Changes save automatically.");
         ImGui.Spacing();
         ImGui.TextColored(0xFF9AA1AB, "Standalone camera control for mouse and keyboard.");
         ImGui.TextColored(0xFF9AA1AB, "Preserves vanilla combat and targeting behavior.");
@@ -423,6 +448,12 @@ public sealed class ConfigWindow
     private void DrawGeneralSettingsTab()
     {
         ImGui.TextUnformatted("General Settings");
+        if (ImGui.Button("Reset to Opened Values##HudGeneral"))
+        {
+            this.ResetHudGeneralSettings();
+        }
+        ImGui.SameLine();
+        ImGui.TextColored(0xFF9AA1AB, "Changes save automatically.");
         ImGui.Spacing();
 
         this.DrawPresetsSection();
@@ -624,6 +655,11 @@ public sealed class ConfigWindow
         }
 
         ImGui.Spacing();
+        ImGui.Separator();
+        ImGui.Spacing();
+        ImGui.TextColored(0xFFFF8080, "Danger Zone");
+        ImGui.TextColored(0xFF9AA1AB, "Layout deletions are permanent.");
+
         var canDeleteAny = this.config.CustomLayouts.Count > 0;
         if (!canDeleteAny)
         {
@@ -648,6 +684,12 @@ public sealed class ConfigWindow
         var offsetBounds = HudLayoutOrigin.GetOffsetBounds(ImGui.GetMainViewport().Size);
 
         ImGui.TextUnformatted("HP Orb");
+        if (ImGui.Button("Reset to Opened Values##HudOrb"))
+        {
+            this.ResetHudOrbSettings();
+        }
+        ImGui.SameLine();
+        ImGui.TextColored(0xFF9AA1AB, "Changes save automatically.");
         ImGui.Spacing();
 
         var orbRadius = this.config.OrbRadius;
@@ -736,6 +778,12 @@ public sealed class ConfigWindow
     private void DrawHotbarSettingsTab()
     {
         ImGui.TextUnformatted("Hotbar Settings");
+        if (ImGui.Button("Reset to Opened Values##HudHotbar"))
+        {
+            this.ResetHudHotbarSettings();
+        }
+        ImGui.SameLine();
+        ImGui.TextColored(0xFF9AA1AB, "Changes save automatically.");
         ImGui.Spacing();
 
         var offsetBounds = HudLayoutOrigin.GetOffsetBounds(ImGui.GetMainViewport().Size);
@@ -830,6 +878,12 @@ public sealed class ConfigWindow
     private void DrawMinimapGeneralTab()
     {
         ImGui.TextUnformatted("General");
+        if (ImGui.Button("Reset to Opened Values##MinimapGeneral"))
+        {
+            this.ResetMinimapGeneralSettings();
+        }
+        ImGui.SameLine();
+        ImGui.TextColored(0xFF9AA1AB, "Changes save automatically.");
         ImGui.Spacing();
 
         var minimapEnabled = this.config.MinimapEnabled;
@@ -870,6 +924,12 @@ public sealed class ConfigWindow
     private void DrawMinimapLayoutTab()
     {
         ImGui.TextUnformatted("Layout");
+        if (ImGui.Button("Reset to Opened Values##MinimapLayout"))
+        {
+            this.ResetMinimapLayoutSettings();
+        }
+        ImGui.SameLine();
+        ImGui.TextColored(0xFF9AA1AB, "Changes save automatically.");
         ImGui.Spacing();
 
         ImGui.TextColored(0xFF9AA1AB, "Visible range in yalms: lower is closer, higher shows more area.");
@@ -955,6 +1015,12 @@ public sealed class ConfigWindow
     private void DrawMinimapMarkersTab()
     {
         ImGui.TextUnformatted("Map Markers");
+        if (ImGui.Button("Reset to Opened Values##MinimapMarkers"))
+        {
+            this.ResetMinimapMarkerSettings();
+        }
+        ImGui.SameLine();
+        ImGui.TextColored(0xFF9AA1AB, "Changes save automatically.");
         ImGui.Spacing();
         ImGui.TextColored(
             0xFF9AA1AB,
@@ -1146,6 +1212,12 @@ public sealed class ConfigWindow
     private void DrawBuffDebuffSettingsTab()
     {
         ImGui.TextUnformatted("Buff/Debuff Settings");
+        if (ImGui.Button("Reset to Opened Values##HudBuffDebuff"))
+        {
+            this.ResetHudBuffDebuffSettings();
+        }
+        ImGui.SameLine();
+        ImGui.TextColored(0xFF9AA1AB, "Changes save automatically.");
         ImGui.Spacing();
 
         ImGui.TextUnformatted("Preview");
@@ -1586,6 +1658,320 @@ public sealed class ConfigWindow
         ImGui.TextUnformatted(title);
         ImGui.SameLine(ImGui.GetContentRegionAvail().X - ImGui.GetFrameHeight() - 4f);
         return ImGui.Checkbox($"##sectionEnabled_{title}", ref enabled);
+    }
+
+    private void CaptureSessionBaselines()
+    {
+        this.hudGeneralBaseline = new HudGeneralSessionBaseline(
+            this.config.Enabled,
+            this.config.EnableStatusTooltips,
+            this.config.GlobalScale,
+            this.config.GlobalOpacity,
+            this.config.HudOffsetX,
+            this.config.HudOffsetY);
+
+        this.hudOrbBaseline = new HudOrbSessionBaseline(
+            this.config.OrbRadius,
+            this.config.OrbOffsetX,
+            this.config.OrbOffsetY,
+            this.config.OrbThickness,
+            this.config.MpRingThicknessScale,
+            this.config.ShowSlidecastMarker,
+            this.config.SlidecastOffsetSeconds,
+            this.config.LimitBreakOffsetX,
+            this.config.LimitBreakYOffset);
+
+        this.hotbarBaseline = new HotbarSessionBaseline(
+            this.config.Hotbar1Enabled,
+            this.config.Hotbar2Enabled,
+            this.config.Hotbar1OffsetX,
+            this.config.Hotbar1OffsetY,
+            this.config.Hotbar2OffsetX,
+            this.config.Hotbar2OffsetY,
+            this.config.Hotbar1VisibleSlotCount,
+            this.config.Hotbar2VisibleSlotCount,
+            this.config.Hotbar1SlotsPerRow,
+            this.config.Hotbar2SlotsPerRow,
+            this.config.Hotbar1SlotSize,
+            this.config.Hotbar1SlotGap,
+            this.config.Hotbar2SlotSize,
+            this.config.Hotbar2SlotGap);
+
+        this.buffDebuffBaseline = new BuffDebuffSessionBaseline(
+            this.config.ShowTestStatusEffects,
+            this.config.BuffIconSize,
+            this.config.BuffIconGap,
+            this.config.BuffOffsetX,
+            this.config.BuffOffsetY,
+            this.config.BuffGrowDirection,
+            this.config.BuffTimerPlacement,
+            this.config.BuffMaxIconsPerRow,
+            this.config.DebuffIconSize,
+            this.config.DebuffIconGap,
+            this.config.DebuffOffsetX,
+            this.config.DebuffOffsetY,
+            this.config.DebuffGrowDirection,
+            this.config.DebuffTimerPlacement,
+            this.config.DebuffMaxIconsPerRow);
+
+        this.minimapGeneralBaseline = new MinimapGeneralSessionBaseline(
+            this.config.MinimapEnabled,
+            this.config.MinimapSquare,
+            this.config.MinimapNorthLocked,
+            this.config.MinimapShowCardinalDirections);
+
+        this.minimapLayoutBaseline = new MinimapLayoutSessionBaseline(
+            this.config.MinimapSize,
+            this.config.MinimapBorderThickness,
+            this.config.MinimapBorderColor,
+            this.config.MinimapVisibleRangeYalms,
+            this.config.MinimapOffsetX,
+            this.config.MinimapOffsetY);
+
+        this.minimapMarkersBaseline = new MinimapMarkersSessionBaseline(
+            this.config.MinimapShowNativeMarkers,
+            this.config.MinimapMarkerIconSize,
+            this.config.MinimapUseRolePinColor,
+            this.config.MinimapPlayerPinSize,
+            this.config.MinimapPlayerPinColor,
+            this.config.MinimapFacingConeSizeScale,
+            this.config.MinimapFacingConeOpacity);
+
+        this.actionCameraBaseline = ActionCameraSessionBaseline.Capture(this.config.ActionCamera);
+        this.aetherPlatesConfigWindow.CaptureSessionBaselines();
+    }
+
+    private void ResetHudGeneralSettings()
+    {
+        this.config.Enabled = this.hudGeneralBaseline.Enabled;
+        this.config.EnableStatusTooltips = this.hudGeneralBaseline.EnableStatusTooltips;
+        this.config.GlobalScale = this.hudGeneralBaseline.GlobalScale;
+        this.config.GlobalOpacity = this.hudGeneralBaseline.GlobalOpacity;
+        this.config.HudOffsetX = this.hudGeneralBaseline.HudOffsetX;
+        this.config.HudOffsetY = this.hudGeneralBaseline.HudOffsetY;
+        this.config.Save();
+    }
+
+    private void ResetHudOrbSettings()
+    {
+        this.config.OrbRadius = this.hudOrbBaseline.OrbRadius;
+        this.config.OrbOffsetX = this.hudOrbBaseline.OrbOffsetX;
+        this.config.OrbOffsetY = this.hudOrbBaseline.OrbOffsetY;
+        this.config.OrbThickness = this.hudOrbBaseline.OrbThickness;
+        this.config.MpRingThicknessScale = this.hudOrbBaseline.MpRingThicknessScale;
+        this.config.ShowSlidecastMarker = this.hudOrbBaseline.ShowSlidecastMarker;
+        this.config.SlidecastOffsetSeconds = this.hudOrbBaseline.SlidecastOffsetSeconds;
+        this.config.LimitBreakOffsetX = this.hudOrbBaseline.LimitBreakOffsetX;
+        this.config.LimitBreakYOffset = this.hudOrbBaseline.LimitBreakYOffset;
+        this.config.Save();
+    }
+
+    private void ResetHudHotbarSettings()
+    {
+        this.config.Hotbar1Enabled = this.hotbarBaseline.Hotbar1Enabled;
+        this.config.Hotbar2Enabled = this.hotbarBaseline.Hotbar2Enabled;
+        this.config.Hotbar1OffsetX = this.hotbarBaseline.Hotbar1OffsetX;
+        this.config.Hotbar1OffsetY = this.hotbarBaseline.Hotbar1OffsetY;
+        this.config.Hotbar2OffsetX = this.hotbarBaseline.Hotbar2OffsetX;
+        this.config.Hotbar2OffsetY = this.hotbarBaseline.Hotbar2OffsetY;
+        this.config.Hotbar1VisibleSlotCount = this.hotbarBaseline.Hotbar1VisibleSlotCount;
+        this.config.Hotbar2VisibleSlotCount = this.hotbarBaseline.Hotbar2VisibleSlotCount;
+        this.config.Hotbar1SlotsPerRow = this.hotbarBaseline.Hotbar1SlotsPerRow;
+        this.config.Hotbar2SlotsPerRow = this.hotbarBaseline.Hotbar2SlotsPerRow;
+        this.config.Hotbar1SlotSize = this.hotbarBaseline.Hotbar1SlotSize;
+        this.config.Hotbar1SlotGap = this.hotbarBaseline.Hotbar1SlotGap;
+        this.config.Hotbar2SlotSize = this.hotbarBaseline.Hotbar2SlotSize;
+        this.config.Hotbar2SlotGap = this.hotbarBaseline.Hotbar2SlotGap;
+        this.config.Save();
+    }
+
+    private void ResetHudBuffDebuffSettings()
+    {
+        this.config.ShowTestStatusEffects = this.buffDebuffBaseline.ShowTestStatusEffects;
+        this.config.BuffIconSize = this.buffDebuffBaseline.BuffIconSize;
+        this.config.BuffIconGap = this.buffDebuffBaseline.BuffIconGap;
+        this.config.BuffOffsetX = this.buffDebuffBaseline.BuffOffsetX;
+        this.config.BuffOffsetY = this.buffDebuffBaseline.BuffOffsetY;
+        this.config.BuffGrowDirection = this.buffDebuffBaseline.BuffGrowDirection;
+        this.config.BuffTimerPlacement = this.buffDebuffBaseline.BuffTimerPlacement;
+        this.config.BuffMaxIconsPerRow = this.buffDebuffBaseline.BuffMaxIconsPerRow;
+        this.config.DebuffIconSize = this.buffDebuffBaseline.DebuffIconSize;
+        this.config.DebuffIconGap = this.buffDebuffBaseline.DebuffIconGap;
+        this.config.DebuffOffsetX = this.buffDebuffBaseline.DebuffOffsetX;
+        this.config.DebuffOffsetY = this.buffDebuffBaseline.DebuffOffsetY;
+        this.config.DebuffGrowDirection = this.buffDebuffBaseline.DebuffGrowDirection;
+        this.config.DebuffTimerPlacement = this.buffDebuffBaseline.DebuffTimerPlacement;
+        this.config.DebuffMaxIconsPerRow = this.buffDebuffBaseline.DebuffMaxIconsPerRow;
+        this.config.Save();
+    }
+
+    private void ResetMinimapGeneralSettings()
+    {
+        this.config.MinimapEnabled = this.minimapGeneralBaseline.MinimapEnabled;
+        this.config.MinimapSquare = this.minimapGeneralBaseline.MinimapSquare;
+        this.config.MinimapNorthLocked = this.minimapGeneralBaseline.MinimapNorthLocked;
+        this.config.MinimapShowCardinalDirections = this.minimapGeneralBaseline.MinimapShowCardinalDirections;
+        this.config.Save();
+    }
+
+    private void ResetMinimapLayoutSettings()
+    {
+        this.config.MinimapSize = this.minimapLayoutBaseline.MinimapSize;
+        this.config.MinimapBorderThickness = this.minimapLayoutBaseline.MinimapBorderThickness;
+        this.config.MinimapBorderColor = this.minimapLayoutBaseline.MinimapBorderColor;
+        this.config.MinimapVisibleRangeYalms = this.minimapLayoutBaseline.MinimapVisibleRangeYalms;
+        this.config.MinimapOffsetX = this.minimapLayoutBaseline.MinimapOffsetX;
+        this.config.MinimapOffsetY = this.minimapLayoutBaseline.MinimapOffsetY;
+        this.config.Save();
+    }
+
+    private void ResetMinimapMarkerSettings()
+    {
+        this.config.MinimapShowNativeMarkers = this.minimapMarkersBaseline.MinimapShowNativeMarkers;
+        this.config.MinimapMarkerIconSize = this.minimapMarkersBaseline.MinimapMarkerIconSize;
+        this.config.MinimapUseRolePinColor = this.minimapMarkersBaseline.MinimapUseRolePinColor;
+        this.config.MinimapPlayerPinSize = this.minimapMarkersBaseline.MinimapPlayerPinSize;
+        this.config.MinimapPlayerPinColor = this.minimapMarkersBaseline.MinimapPlayerPinColor;
+        this.config.MinimapFacingConeSizeScale = this.minimapMarkersBaseline.MinimapFacingConeSizeScale;
+        this.config.MinimapFacingConeOpacity = this.minimapMarkersBaseline.MinimapFacingConeOpacity;
+        this.config.Save();
+    }
+
+    private void ResetActionCameraGeneralSettings()
+    {
+        this.config.ActionCamera.Enabled = this.actionCameraBaseline.Enabled;
+        this.config.ActionCamera.HorizontalSensitivity = this.actionCameraBaseline.HorizontalSensitivity;
+        this.config.ActionCamera.VerticalSensitivity = this.actionCameraBaseline.VerticalSensitivity;
+        this.config.ActionCamera.BackendMode = this.actionCameraBaseline.BackendMode;
+        this.config.ActionCamera.UnlockMode = this.actionCameraBaseline.UnlockMode;
+        this.config.ActionCamera.HoldUnlockKey = this.actionCameraBaseline.HoldUnlockKey;
+        this.config.ActionCamera.ToggleUnlockKey = this.actionCameraBaseline.ToggleUnlockKey;
+        this.config.ActionCamera.UnlockOnUi = this.actionCameraBaseline.UnlockOnUi;
+        this.config.ActionCamera.EscAlwaysUnlock = this.actionCameraBaseline.EscAlwaysUnlock;
+        this.config.ActionCamera.ReacquireOnToggle = this.actionCameraBaseline.ReacquireOnToggle;
+        this.config.ActionCamera.PreventRmbDisruption = this.actionCameraBaseline.PreventRmbDisruption;
+        this.config.ActionCamera.ShowReticle = this.actionCameraBaseline.ShowReticle;
+        this.config.ActionCamera.AutoTarget = this.actionCameraBaseline.AutoTarget;
+        this.config.ActionCamera.EnableSoftTargetSuggestion = this.actionCameraBaseline.EnableSoftTargetSuggestion;
+        this.config.ActionCamera.SoftTargetScreenRadius = this.actionCameraBaseline.SoftTargetScreenRadius;
+        this.config.ActionCamera.ShowDebugOverlay = this.actionCameraBaseline.ShowDebugOverlay;
+        this.NotifyActionCameraConfigChanged();
+    }
+
+    private readonly record struct HudGeneralSessionBaseline(
+        bool Enabled,
+        bool EnableStatusTooltips,
+        float GlobalScale,
+        float GlobalOpacity,
+        float HudOffsetX,
+        float HudOffsetY);
+
+    private readonly record struct HudOrbSessionBaseline(
+        float OrbRadius,
+        float OrbOffsetX,
+        float OrbOffsetY,
+        float OrbThickness,
+        float MpRingThicknessScale,
+        bool ShowSlidecastMarker,
+        float SlidecastOffsetSeconds,
+        float LimitBreakOffsetX,
+        float LimitBreakYOffset);
+
+    private readonly record struct HotbarSessionBaseline(
+        bool Hotbar1Enabled,
+        bool Hotbar2Enabled,
+        float Hotbar1OffsetX,
+        float Hotbar1OffsetY,
+        float Hotbar2OffsetX,
+        float Hotbar2OffsetY,
+        int Hotbar1VisibleSlotCount,
+        int Hotbar2VisibleSlotCount,
+        int Hotbar1SlotsPerRow,
+        int Hotbar2SlotsPerRow,
+        float Hotbar1SlotSize,
+        float Hotbar1SlotGap,
+        float Hotbar2SlotSize,
+        float Hotbar2SlotGap);
+
+    private readonly record struct BuffDebuffSessionBaseline(
+        bool ShowTestStatusEffects,
+        float BuffIconSize,
+        float BuffIconGap,
+        float BuffOffsetX,
+        float BuffOffsetY,
+        StatusLaneGrowDirection BuffGrowDirection,
+        StatusTimerPlacement BuffTimerPlacement,
+        int BuffMaxIconsPerRow,
+        float DebuffIconSize,
+        float DebuffIconGap,
+        float DebuffOffsetX,
+        float DebuffOffsetY,
+        StatusLaneGrowDirection DebuffGrowDirection,
+        StatusTimerPlacement DebuffTimerPlacement,
+        int DebuffMaxIconsPerRow);
+
+    private readonly record struct MinimapGeneralSessionBaseline(
+        bool MinimapEnabled,
+        bool MinimapSquare,
+        bool MinimapNorthLocked,
+        bool MinimapShowCardinalDirections);
+
+    private readonly record struct MinimapLayoutSessionBaseline(
+        float MinimapSize,
+        float MinimapBorderThickness,
+        uint MinimapBorderColor,
+        float MinimapVisibleRangeYalms,
+        float MinimapOffsetX,
+        float MinimapOffsetY);
+
+    private readonly record struct MinimapMarkersSessionBaseline(
+        bool MinimapShowNativeMarkers,
+        float MinimapMarkerIconSize,
+        bool MinimapUseRolePinColor,
+        float MinimapPlayerPinSize,
+        uint MinimapPlayerPinColor,
+        float MinimapFacingConeSizeScale,
+        float MinimapFacingConeOpacity);
+
+    private readonly record struct ActionCameraSessionBaseline
+    {
+        public bool Enabled { get; init; }
+        public float HorizontalSensitivity { get; init; }
+        public float VerticalSensitivity { get; init; }
+        public ActionCameraBackendMode BackendMode { get; init; }
+        public ActionCameraUnlockMode UnlockMode { get; init; }
+        public Dalamud.Game.ClientState.Keys.VirtualKey HoldUnlockKey { get; init; }
+        public Dalamud.Game.ClientState.Keys.VirtualKey ToggleUnlockKey { get; init; }
+        public bool UnlockOnUi { get; init; }
+        public bool EscAlwaysUnlock { get; init; }
+        public bool ReacquireOnToggle { get; init; }
+        public bool PreventRmbDisruption { get; init; }
+        public bool ShowReticle { get; init; }
+        public bool AutoTarget { get; init; }
+        public bool EnableSoftTargetSuggestion { get; init; }
+        public float SoftTargetScreenRadius { get; init; }
+        public bool ShowDebugOverlay { get; init; }
+
+        public static ActionCameraSessionBaseline Capture(ActionCameraConfiguration source) =>
+            new()
+            {
+                Enabled = source.Enabled,
+                HorizontalSensitivity = source.HorizontalSensitivity,
+                VerticalSensitivity = source.VerticalSensitivity,
+                BackendMode = source.BackendMode,
+                UnlockMode = source.UnlockMode,
+                HoldUnlockKey = source.HoldUnlockKey,
+                ToggleUnlockKey = source.ToggleUnlockKey,
+                UnlockOnUi = source.UnlockOnUi,
+                EscAlwaysUnlock = source.EscAlwaysUnlock,
+                ReacquireOnToggle = source.ReacquireOnToggle,
+                PreventRmbDisruption = source.PreventRmbDisruption,
+                ShowReticle = source.ShowReticle,
+                AutoTarget = source.AutoTarget,
+                EnableSoftTargetSuggestion = source.EnableSoftTargetSuggestion,
+                SoftTargetScreenRadius = source.SoftTargetScreenRadius,
+                ShowDebugOverlay = source.ShowDebugOverlay,
+            };
     }
 
     private enum ConfigBucket
