@@ -80,9 +80,10 @@ public static class HudLayoutEngine
             config.LimitBreakOffsetX,
             config.LimitBreakYOffset);
 
+        // Minimap owns its own placement and should not inherit HUD layout translation.
         var minimapCenter = HudLayoutOrigin.GetElementCenter(
             screenCenter,
-            hudOffset,
+            Vector2.Zero,
             config.MinimapOffsetX,
             config.MinimapOffsetY);
 

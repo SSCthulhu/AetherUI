@@ -19,7 +19,7 @@ public sealed class ConfigWindow
     private string pendingDeleteCustomLayoutName = string.Empty;
     private bool requestOpenDeleteCustomLayoutPopup;
     private bool requestOpenDeleteAllCustomLayoutsPopup;
-    private ConfigSettingsTab selectedTab = ConfigSettingsTab.General;
+    private ConfigBucket selectedBucket = ConfigBucket.HudLayout;
 
     public ConfigWindow(
         HudConfiguration config,
@@ -37,7 +37,7 @@ public sealed class ConfigWindow
     }
 
     public bool IsOpen { get; set; }
-    public void SelectMinimapTab() => this.selectedTab = ConfigSettingsTab.Minimap;
+    public void SelectMinimapTab() => this.selectedBucket = ConfigBucket.Minimap;
 
     public void Draw()
     {
@@ -95,49 +95,34 @@ public sealed class ConfigWindow
 
     private void DrawSettingsNavSidebar()
     {
-        ImGui.TextUnformatted("Settings");
+        ImGui.TextUnformatted("Components");
         ImGui.Separator();
         ImGui.Spacing();
 
-        if (this.DrawSettingsNavButton(ConfigSettingsTab.General, "General Settings"))
+        if (this.DrawSettingsNavButton(ConfigBucket.HudLayout, "HUD Layout"))
         {
-            this.selectedTab = ConfigSettingsTab.General;
+            this.selectedBucket = ConfigBucket.HudLayout;
         }
 
-        if (this.DrawSettingsNavButton(ConfigSettingsTab.Orb, "Parameter Orb settings"))
+        if (this.DrawSettingsNavButton(ConfigBucket.Minimap, "Minimap"))
         {
-            this.selectedTab = ConfigSettingsTab.Orb;
+            this.selectedBucket = ConfigBucket.Minimap;
         }
 
-        if (this.DrawSettingsNavButton(ConfigSettingsTab.Hotbar, "Hotbar Settings"))
+        if (this.DrawSettingsNavButton(ConfigBucket.ActionCamera, "Action Camera"))
         {
-            this.selectedTab = ConfigSettingsTab.Hotbar;
+            this.selectedBucket = ConfigBucket.ActionCamera;
         }
 
-        if (this.DrawSettingsNavButton(ConfigSettingsTab.BuffDebuff, "Buff/Debuff Settings"))
+        if (this.DrawSettingsNavButton(ConfigBucket.Nameplate, "Nameplate"))
         {
-            this.selectedTab = ConfigSettingsTab.BuffDebuff;
-        }
-
-        if (this.DrawSettingsNavButton(ConfigSettingsTab.Minimap, "Minimap Settings"))
-        {
-            this.selectedTab = ConfigSettingsTab.Minimap;
-        }
-
-        if (this.DrawSettingsNavButton(ConfigSettingsTab.ActionCamera, "Action Camera"))
-        {
-            this.selectedTab = ConfigSettingsTab.ActionCamera;
-        }
-
-        if (this.DrawSettingsNavButton(ConfigSettingsTab.Nameplates, "Nameplate Settings"))
-        {
-            this.selectedTab = ConfigSettingsTab.Nameplates;
+            this.selectedBucket = ConfigBucket.Nameplate;
         }
     }
 
-    private bool DrawSettingsNavButton(ConfigSettingsTab tab, string label)
+    private bool DrawSettingsNavButton(ConfigBucket bucket, string label)
     {
-        var selected = this.selectedTab == tab;
+        var selected = this.selectedBucket == bucket;
         if (selected)
         {
             ImGui.PushStyleColor(ImGuiCol.Button, 0xFF6B4A24);
@@ -156,35 +141,76 @@ public sealed class ConfigWindow
 
     private void DrawSelectedSettingsTab()
     {
-        switch (this.selectedTab)
+        switch (this.selectedBucket)
         {
-            case ConfigSettingsTab.Orb:
-                this.DrawOrbSettingsTab();
+            case ConfigBucket.HudLayout:
+                this.DrawHudLayoutBucket();
                 break;
-            case ConfigSettingsTab.Hotbar:
-                this.DrawHotbarSettingsTab();
-                break;
-            case ConfigSettingsTab.BuffDebuff:
-                this.DrawBuffDebuffSettingsTab();
-                break;
-            case ConfigSettingsTab.Minimap:
+            case ConfigBucket.Minimap:
                 this.DrawMinimapSettingsTab();
                 break;
-            case ConfigSettingsTab.ActionCamera:
+            case ConfigBucket.ActionCamera:
                 this.DrawActionCameraSettingsTab();
                 break;
-            case ConfigSettingsTab.Nameplates:
-                this.DrawNameplateSettingsTab();
+            case ConfigBucket.Nameplate:
+                this.DrawNameplateBucket();
                 break;
             default:
-                this.DrawGeneralSettingsTab();
+                this.DrawHudLayoutBucket();
                 break;
         }
     }
 
-    private void DrawNameplateSettingsTab()
+    private void DrawHudLayoutBucket()
     {
-        this.aetherPlatesConfigWindow.DrawSection();
+        if (ImGui.BeginTabBar("##HudLayoutTabs"))
+        {
+            if (ImGui.BeginTabItem("General Settings"))
+            {
+                this.DrawGeneralSettingsTab();
+                ImGui.EndTabItem();
+            }
+
+            if (ImGui.BeginTabItem("Parameter Orb Settings"))
+            {
+                this.DrawOrbSettingsTab();
+                ImGui.EndTabItem();
+            }
+
+            if (ImGui.BeginTabItem("Hotbar Settings"))
+            {
+                this.DrawHotbarSettingsTab();
+                ImGui.EndTabItem();
+            }
+
+            if (ImGui.BeginTabItem("Buff/Debuff Settings"))
+            {
+                this.DrawBuffDebuffSettingsTab();
+                ImGui.EndTabItem();
+            }
+
+            ImGui.EndTabBar();
+        }
+    }
+
+    private void DrawNameplateBucket()
+    {
+        if (ImGui.BeginTabBar("##NameplateTabs"))
+        {
+            if (ImGui.BeginTabItem("General Settings"))
+            {
+                this.aetherPlatesConfigWindow.DrawGeneralSettingsSection();
+                ImGui.EndTabItem();
+            }
+
+            if (ImGui.BeginTabItem("Category Designer"))
+            {
+                this.aetherPlatesConfigWindow.DrawCategoryDesignerSection();
+                ImGui.EndTabItem();
+            }
+
+            ImGui.EndTabBar();
+        }
     }
 
     private void DrawActionCameraSettingsTab()
@@ -1507,14 +1533,12 @@ public sealed class ConfigWindow
         return ImGui.Checkbox($"##sectionEnabled_{title}", ref enabled);
     }
 
-    private enum ConfigSettingsTab
+    private enum ConfigBucket
     {
-        General = 0,
-        Orb = 1,
-        Hotbar = 2,
-        BuffDebuff = 3,
-        Minimap = 4,
-        ActionCamera = 5,
-        Nameplates = 6,
+        HudLayout = 0,
+        Minimap = 1,
+        ActionCamera = 2,
+        Nameplate = 3,
     }
+
 }

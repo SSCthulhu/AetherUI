@@ -36,6 +36,11 @@ jobs:
       - name: Build Release
         run: dotnet build FFXIVHudPlugin.csproj -c Release --no-restore
 
+      - name: Validate package metadata and artifacts
+        shell: pwsh
+        run: |
+          pwsh -ExecutionPolicy Bypass -File .\scripts\validate-package.ps1
+
       - name: Package Plugin
         shell: pwsh
         run: |

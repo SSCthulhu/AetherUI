@@ -7,7 +7,7 @@ namespace FFXIVHudPlugin;
 [Serializable]
 public sealed class HudConfiguration : IPluginConfiguration
 {
-    public int Version { get; set; } = 60;
+    public int Version { get; set; } = 61;
 
     public bool Enabled { get; set; } = true;
     public bool UnlockLayout { get; set; } = false;
@@ -84,6 +84,7 @@ public sealed class HudConfiguration : IPluginConfiguration
     public float MinimapPlayerPinSize { get; set; } = MinimapLayout.DefaultPlayerPinSize;
     public bool MinimapUseRolePinColor { get; set; } = true;
     public uint MinimapPlayerPinColor { get; set; } = MinimapLayout.DefaultPlayerPinColor;
+    public bool MinimapDetachedFromHudOffset { get; set; }
 
     public uint ColorHpFill { get; set; } = 0xFF4AB34A;
     public uint ColorHpBack { get; set; } = 0x40202020;
@@ -622,6 +623,20 @@ public sealed class HudConfiguration : IPluginConfiguration
             didChange = true;
         }
 
+        if (this.Version < 61)
+        {
+            if (!this.MinimapDetachedFromHudOffset)
+            {
+                // Preserve on-screen minimap location now that minimap no longer inherits global HUD offset.
+                this.MinimapOffsetX += this.HudOffsetX;
+                this.MinimapOffsetY += this.HudOffsetY;
+                this.MinimapDetachedFromHudOffset = true;
+            }
+
+            this.Version = 61;
+            didChange = true;
+        }
+
         return didChange;
     }
 
@@ -806,6 +821,11 @@ public sealed class HudConfiguration : IPluginConfiguration
 
         this.MinimapOffsetX = NormalizeFiniteFloat(this.MinimapOffsetX, MinimapLayout.DefaultOffsetX, ref changed);
         this.MinimapOffsetY = NormalizeFiniteFloat(this.MinimapOffsetY, MinimapLayout.DefaultOffsetY, ref changed);
+        if (!this.MinimapDetachedFromHudOffset)
+        {
+            this.MinimapDetachedFromHudOffset = true;
+            changed = true;
+        }
         this.HudOffsetX = NormalizeFiniteFloat(this.HudOffsetX, 0f, ref changed);
         this.HudOffsetY = NormalizeFiniteFloat(this.HudOffsetY, 0f, ref changed);
         this.OrbOffsetX = NormalizeFiniteFloat(this.OrbOffsetX, 0f, ref changed);
@@ -932,7 +952,6 @@ public sealed class HudConfiguration : IPluginConfiguration
             config.SelectedCustomLayoutName = string.Empty;
         }
 
-        ApplyPresetSupplementalSettings(config, preset);
         config.Preset = preset;
     }
 
@@ -952,20 +971,6 @@ public sealed class HudConfiguration : IPluginConfiguration
         }
 
         return TryApplyCustomLayout(config, expectedLayoutName);
-    }
-
-    private static void ApplyPresetSupplementalSettings(HudConfiguration config, HudPreset preset)
-    {
-        if (preset == HudPreset.Default || preset == HudPreset.Expanded)
-        {
-            config.MinimapOffsetY = -820f;
-            return;
-        }
-
-        if (preset == HudPreset.Arpg)
-        {
-            config.MinimapOffsetY = -996.5f;
-        }
     }
 
     public static bool TryApplyCustomLayout(HudConfiguration config, string layoutName)

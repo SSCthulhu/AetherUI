@@ -30,6 +30,15 @@ public sealed class ConfigWindow
 
     public void DrawSection()
     {
+        this.DrawGeneralSettingsSection();
+        ImGui.Spacing();
+        ImGui.Separator();
+        ImGui.Spacing();
+        this.DrawCategoryDesignerSection();
+    }
+
+    public void DrawGeneralSettingsSection()
+    {
         ImGui.TextUnformatted("Nameplates");
         ImGui.Separator();
         ImGui.Spacing();
@@ -57,9 +66,6 @@ public sealed class ConfigWindow
 
         ImGui.Spacing();
         DrawGlobalDefaultFontSelector();
-
-        this.DrawAdvancedCategoryMapping();
-        this.layoutEditorWindow.Draw();
 
         ImGui.Spacing();
         ImGui.Separator();
@@ -173,7 +179,13 @@ public sealed class ConfigWindow
         }
 
         ImGui.Spacing();
-        ImGui.TextColored(0xFF9AA1AB, "Per-category widget visibility and layout are configured in Advanced Category tabs above.");
+        ImGui.TextColored(0xFF9AA1AB, "Per-category widget visibility and layout are configured in Category Designer.");
+    }
+
+    public void DrawCategoryDesignerSection()
+    {
+        this.DrawAdvancedCategoryMapping();
+        this.layoutEditorWindow.Draw();
     }
 
     private static void DrawIdSetEditor(string label, ref string input, HashSet<uint> target, Action onChanged)

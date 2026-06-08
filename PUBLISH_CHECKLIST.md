@@ -38,6 +38,8 @@ Use this checklist every time you publish an update for testers via Dalamud Expe
    - Open GitHub -> `Releases` -> `v0.0.66`
    - Confirm asset exists:
      - `FFXIVHudPlugin.zip`
+   - Run package validation before publishing:
+     - `pwsh -ExecutionPolicy Bypass -File .\scripts\validate-package.ps1`
 
 7. **Smoke test install path**
    - In-game `/xlsettings` -> `Experimental` -> ensure repo URL is present
@@ -49,6 +51,7 @@ Replace `0.0.66` with your next version.
 
 ```powershell
 cd "F:\Game Development\FFXIV Plugins\ffxiv-dalamud-hud"
+pwsh -ExecutionPolicy Bypass -File .\scripts\validate-package.ps1
 git add "FFXIVHudPlugin.csproj" "pluginmaster.json"
 git commit -m "Bump plugin version to 0.0.66 for release."
 git push origin main
@@ -61,3 +64,21 @@ git push origin v0.0.66
 - Check `Actions` logs for the failed step.
 - Fix on `main`, push, then create a **new** tag (do not reuse failed tag), e.g.:
   - `v0.0.66.1`
+
+## Packaging guardrails
+
+Always ensure the release zip contains all of the following files:
+
+- `FFXIVHudPlugin.dll` (legacy assembly still emitted)
+- `FFXIVHudPlugin.json` (legacy manifest still emitted)
+- `FFXIVHudReimagined.dll` (Dalamud loader target)
+- `FFXIVHudReimagined.deps.json` (Dalamud dependency graph for alias)
+- `FFXIVHudReimagined.json` (manifest with `InternalName: FFXIVHudReimagined`)
+
+The validation script checks:
+
+- csproj `<Version>` matches manifest `AssemblyVersion`
+- `FFXIVHudPlugin.json` and `FFXIVHudReimagined.json` stay in sync
+- both manifests keep `InternalName` set to `FFXIVHudReimagined`
+- `pluginmaster.json` continues to point at the same GitHub release zip path
+- required files are present in `bin\Release\FFXIVHudPlugin\latest.zip`
