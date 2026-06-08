@@ -259,8 +259,8 @@ public sealed class ConfigWindow
     {
         ImGui.TextUnformatted("Action Camera");
         ImGui.Spacing();
-        ImGui.TextColored(0xFF9AA1AB, "Standalone camera-control mode for mouse and keyboard.");
-        ImGui.TextColored(0xFF9AA1AB, "Preserves vanilla combat and targeting. No action-combat logic.");
+        ImGui.TextColored(0xFF9AA1AB, "Standalone camera control for mouse and keyboard.");
+        ImGui.TextColored(0xFF9AA1AB, "Preserves vanilla combat and targeting behavior.");
         ImGui.Spacing();
         ImGui.Separator();
         ImGui.Spacing();
@@ -302,11 +302,7 @@ public sealed class ConfigWindow
             }
         }
 
-        ImGui.TextColored(0xFF9AA1AB, "Auto Unlock During UI Interaction: Always On");
-        ImGui.TextColored(0xFF9AA1AB, "Escape Always Unlocks Cursor: Always On");
-
-        ImGui.TextColored(0xFF9AA1AB, "Reacquire On Toggle Key: Internal Setting");
-        ImGui.TextColored(0xFF9AA1AB, "Prevent RMB Camera Disruption: Internal Setting");
+        ImGui.TextColored(0xFF9AA1AB, "Auto Unlock During UI Interaction and Escape Unlock are always enabled.");
 
         var showReticle = actionConfig.ShowReticle;
         if (DrawSettingCheckbox("Show Center Reticle", ref showReticle))
@@ -323,7 +319,7 @@ public sealed class ConfigWindow
         }
 
         var autoTarget = actionConfig.AutoTarget;
-        if (DrawSettingCheckbox("Auto Target Reticle Candidate", ref autoTarget))
+        if (DrawSettingCheckbox("Auto-Target Best Candidate", ref autoTarget))
         {
             actionConfig.AutoTarget = autoTarget;
             this.NotifyActionCameraConfigChanged();
@@ -453,7 +449,7 @@ public sealed class ConfigWindow
         ImGui.Spacing();
         ImGui.Separator();
         ImGui.Spacing();
-        ImGui.TextUnformatted("Display");
+        ImGui.TextUnformatted("Scale and Opacity");
         ImGui.TextColored(0xFF9AA1AB, "Values move in 0.5 steps. Double-click any value to type an exact number.");
 
         var scale = this.config.GlobalScale;
@@ -568,7 +564,7 @@ public sealed class ConfigWindow
                 names[i] = this.config.CustomLayouts[i].Name;
             }
 
-            ImGui.TextUnformatted("Saved layout");
+            ImGui.TextUnformatted("Saved Layout");
             ImGui.SetNextItemWidth(-1f);
             var previousIndex = this.selectedCustomLayoutIndex;
             if (ImGui.Combo("##SavedCustomLayout", ref this.selectedCustomLayoutIndex, names, names.Length))
@@ -587,7 +583,7 @@ public sealed class ConfigWindow
         }
 
         ImGui.Spacing();
-        ImGui.TextUnformatted("New layout name");
+        ImGui.TextUnformatted("New Layout Name");
         ImGui.SetNextItemWidth(-1f);
         ImGui.InputTextWithHint("##CustomLayoutName", "e.g. Raid UI, Leveling, etc.", ref this.customLayoutNameBuffer, 64);
 
@@ -698,7 +694,7 @@ public sealed class ConfigWindow
         ImGui.Spacing();
         ImGui.Separator();
         ImGui.Spacing();
-        ImGui.TextUnformatted("Castbar Settings");
+        ImGui.TextUnformatted("Castbar");
         ImGui.Spacing();
 
         var showSlidecast = this.config.ShowSlidecastMarker;
@@ -721,14 +717,14 @@ public sealed class ConfigWindow
         ImGui.TextUnformatted("Limit Break Gauge");
 
         var lbOffsetX = this.config.LimitBreakOffsetX;
-        if (DrawPreciseFloat("LB Gauge X Offset", ref lbOffsetX, offsetBounds.MinX, offsetBounds.MaxX, "%.1f"))
+        if (DrawPreciseFloat("Limit Break Offset X", ref lbOffsetX, offsetBounds.MinX, offsetBounds.MaxX, "%.1f"))
         {
             this.config.LimitBreakOffsetX = lbOffsetX;
             this.config.Save();
         }
 
         var lbOffset = this.config.LimitBreakYOffset;
-        if (DrawPreciseFloat("LB Gauge Y Offset", ref lbOffset, offsetBounds.MinY, offsetBounds.MaxY, "%.1f"))
+        if (DrawPreciseFloat("Limit Break Offset Y", ref lbOffset, offsetBounds.MinY, offsetBounds.MaxY, "%.1f"))
         {
             this.config.LimitBreakYOffset = lbOffset;
             this.config.Save();
@@ -837,7 +833,7 @@ public sealed class ConfigWindow
         ImGui.Spacing();
 
         var minimapEnabled = this.config.MinimapEnabled;
-        if (DrawSettingCheckbox("Minimap Enabled", ref minimapEnabled))
+        if (DrawSettingCheckbox("Enable Minimap", ref minimapEnabled))
         {
             this.config.MinimapEnabled = minimapEnabled;
             this.config.Save();
@@ -853,13 +849,13 @@ public sealed class ConfigWindow
         }
 
         var northLocked = this.config.MinimapNorthLocked;
-        if (DrawSettingCheckbox("Lock North Up", ref northLocked))
+        if (DrawSettingCheckbox("Enable North-Up Orientation", ref northLocked))
         {
             this.config.MinimapNorthLocked = northLocked;
             this.config.Save();
         }
 
-        ImGui.TextColored(0xFF9AA1AB, "North stays at the top; the facing cone follows your camera. Syncs the game's compass lock.");
+        ImGui.TextColored(0xFF9AA1AB, "Keeps north at the top while the facing cone follows camera heading.");
 
         var showCardinalDirections = this.config.MinimapShowCardinalDirections;
         if (DrawSettingCheckbox("Show Cardinal Directions", ref showCardinalDirections))
@@ -876,7 +872,7 @@ public sealed class ConfigWindow
         ImGui.TextUnformatted("Layout");
         ImGui.Spacing();
 
-        ImGui.TextColored(0xFF9AA1AB, "Zoom (yalms): lower = closer view, higher = more territory. Map and markers use the same range.");
+        ImGui.TextColored(0xFF9AA1AB, "Visible range in yalms: lower is closer, higher shows more area.");
 
         var minimapOffsetBounds = MinimapLayout.GetOffsetBounds(
             ImGui.GetMainViewport().Size,
@@ -911,7 +907,7 @@ public sealed class ConfigWindow
 
         var zoomYalms = this.config.MinimapVisibleRangeYalms;
         if (DrawPreciseFloat(
-                "Zoom (yalms)",
+                "Visible Range (yalms)",
                 ref zoomYalms,
                 MinimapLayout.MinVisibleRangeYalms,
                 MinimapLayout.MaxVisibleRangeYalms,
@@ -1152,9 +1148,9 @@ public sealed class ConfigWindow
         ImGui.TextUnformatted("Buff/Debuff Settings");
         ImGui.Spacing();
 
-        ImGui.TextUnformatted("Testing");
+        ImGui.TextUnformatted("Preview");
         var showTestStatusEffects = this.config.ShowTestStatusEffects;
-        if (DrawSettingCheckbox("Show Test Buffs & Debuffs (1 row each)", ref showTestStatusEffects))
+        if (DrawSettingCheckbox("Enable Test Buff/Debuff Preview (1 Row Each)", ref showTestStatusEffects))
         {
             this.config.ShowTestStatusEffects = showTestStatusEffects;
             this.config.Save();
@@ -1328,14 +1324,14 @@ public sealed class ConfigWindow
         }
 
         var buffOffsetX = this.config.BuffOffsetX;
-        if (DrawPreciseFloat("Buff X Offset", ref buffOffsetX, offsetBounds.MinX, offsetBounds.MaxX, "%.1f"))
+        if (DrawPreciseFloat("Buff Offset X", ref buffOffsetX, offsetBounds.MinX, offsetBounds.MaxX, "%.1f"))
         {
             this.config.BuffOffsetX = buffOffsetX;
             this.config.Save();
         }
 
         var buffOffsetY = this.config.BuffOffsetY;
-        if (DrawPreciseFloat("Buff Y Offset", ref buffOffsetY, offsetBounds.MinY, offsetBounds.MaxY, "%.1f"))
+        if (DrawPreciseFloat("Buff Offset Y", ref buffOffsetY, offsetBounds.MinY, offsetBounds.MaxY, "%.1f"))
         {
             this.config.BuffOffsetY = buffOffsetY;
             this.config.Save();
@@ -1384,14 +1380,14 @@ public sealed class ConfigWindow
         }
 
         var debuffOffsetX = this.config.DebuffOffsetX;
-        if (DrawPreciseFloat("Debuff X Offset", ref debuffOffsetX, offsetBounds.MinX, offsetBounds.MaxX, "%.1f"))
+        if (DrawPreciseFloat("Debuff Offset X", ref debuffOffsetX, offsetBounds.MinX, offsetBounds.MaxX, "%.1f"))
         {
             this.config.DebuffOffsetX = debuffOffsetX;
             this.config.Save();
         }
 
         var debuffOffsetY = this.config.DebuffOffsetY;
-        if (DrawPreciseFloat("Debuff Y Offset", ref debuffOffsetY, offsetBounds.MinY, offsetBounds.MaxY, "%.1f"))
+        if (DrawPreciseFloat("Debuff Offset Y", ref debuffOffsetY, offsetBounds.MinY, offsetBounds.MaxY, "%.1f"))
         {
             this.config.DebuffOffsetY = debuffOffsetY;
             this.config.Save();

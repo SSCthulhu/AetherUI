@@ -39,26 +39,19 @@ public sealed class ConfigWindow
 
     public void DrawGeneralSettingsSection()
     {
-        ImGui.TextUnformatted("Nameplates");
+        ImGui.TextUnformatted("Nameplate General Settings");
         ImGui.Separator();
         ImGui.Spacing();
 
         var enabled = this.config.Enabled;
-        if (ImGui.Checkbox("Enable AetherPlates Nameplates", ref enabled))
+        if (ImGui.Checkbox("Enable Nameplates", ref enabled))
         {
             this.config.Enabled = enabled;
             this.onConfigChanged();
         }
 
-        var verticalOffset = this.config.VerticalOffset;
-        if (ImGui.DragFloat("Vertical Offset", ref verticalOffset, 0.01f, -5f, 8f, "%.2f"))
-        {
-            this.config.VerticalOffset = verticalOffset;
-            this.onConfigChanged();
-        }
-
         var temporaryScale = this.config.TemporaryGlobalScale;
-        if (ImGui.DragFloat("Temporary Global Nameplate Scale", ref temporaryScale, 0.01f, 0.5f, 3.0f, "%.2f"))
+        if (ImGui.DragFloat("Global Nameplate Scale", ref temporaryScale, 0.01f, 0.5f, 3.0f, "%.2f"))
         {
             this.config.TemporaryGlobalScale = temporaryScale;
             this.onConfigChanged();
@@ -70,7 +63,7 @@ public sealed class ConfigWindow
         ImGui.Spacing();
         ImGui.Separator();
         ImGui.Spacing();
-        ImGui.TextUnformatted("Range Filtering");
+        ImGui.TextUnformatted("Distance Filtering");
 
         var enableDistanceCulling = this.config.EnableDistanceCulling;
         if (ImGui.Checkbox("Enable Distance Culling", ref enableDistanceCulling))
@@ -134,7 +127,7 @@ public sealed class ConfigWindow
         ImGui.Spacing();
         ImGui.Separator();
         ImGui.Spacing();
-        ImGui.TextUnformatted("Occlusion Culling");
+        ImGui.TextUnformatted("Occlusion");
 
         var enableOcclusionCulling = this.config.EnableOcclusionCulling;
         if (ImGui.Checkbox("Hide Nameplates Behind Geometry", ref enableOcclusionCulling))
