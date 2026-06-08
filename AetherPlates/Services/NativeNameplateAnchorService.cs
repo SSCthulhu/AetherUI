@@ -7,9 +7,15 @@ namespace FFXIVHudPlugin.AetherPlates.Services;
 
 public sealed class NativeNameplateAnchorService : IDisposable
 {
+    public readonly record struct NativePlateMeta(
+        string Name,
+        string Title,
+        uint JobIconId);
+
     private readonly INamePlateGui namePlateGui;
     private readonly Dictionary<ulong, Vector2> anchors = new();
     private readonly Dictionary<ulong, NamePlateKind> kinds = new();
+    private readonly Dictionary<ulong, NativePlateMeta> metadata = new();
     private readonly HashSet<ulong> activeIds = new();
     private long frameId;
     private bool disposed;
@@ -35,6 +41,11 @@ public sealed class NativeNameplateAnchorService : IDisposable
         return this.activeIds.Contains(objectId);
     }
 
+    public bool TryGetMeta(ulong objectId, out NativePlateMeta meta)
+    {
+        return this.metadata.TryGetValue(objectId, out meta);
+    }
+
     public long LastFrameId => this.frameId;
 
     public void Dispose()
@@ -48,6 +59,7 @@ public sealed class NativeNameplateAnchorService : IDisposable
         this.namePlateGui.OnDataUpdate -= this.OnDataUpdate;
         this.anchors.Clear();
         this.kinds.Clear();
+        this.metadata.Clear();
     }
 
     private void OnDataUpdate(INamePlateUpdateContext _, IReadOnlyList<INamePlateUpdateHandler> handlers)
@@ -55,6 +67,7 @@ public sealed class NativeNameplateAnchorService : IDisposable
         this.frameId++;
         this.anchors.Clear();
         this.kinds.Clear();
+        this.metadata.Clear();
         this.activeIds.Clear();
         for (var i = 0; i < handlers.Count; i++)
         {
@@ -88,6 +101,10 @@ public sealed class NativeNameplateAnchorService : IDisposable
             this.activeIds.Add(id);
             this.anchors[id] = new Vector2(x, y);
             this.kinds[id] = handler.NamePlateKind;
+            this.metadata[id] = new NativePlateMeta(
+                handler.Name.TextValue ?? string.Empty,
+                handler.Title.TextValue ?? string.Empty,
+                0u);
         }
     }
 }

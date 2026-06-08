@@ -17,7 +17,9 @@ public sealed class NameplateRenderer
         "buff_row",
         "debuff_row",
         "target_indicator",
+        "title_text",
         "name_text",
+        "job_icon",
     };
 
     private readonly WidgetRegistry widgetRegistry;

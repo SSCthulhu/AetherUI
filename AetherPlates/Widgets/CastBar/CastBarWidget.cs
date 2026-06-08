@@ -23,17 +23,26 @@ public sealed class CastBarWidget : INameplateWidget
         }
 
         var castConfig = context.Profile.CastBar;
+        var useCustomColors = context.CategoryVisual.UseCustomCastBarColors;
         var progress = Math.Clamp(cast.CurrentTime / cast.TotalTime, 0f, 1f);
         var min = layout.Position;
         var max = layout.Position + layout.Size;
         var fillMax = new Vector2(min.X + ((max.X - min.X) * progress), max.Y);
+        var roundness = Math.Clamp(context.CategoryVisual.CastBarCornerRoundness, 0f, 1f);
+        var radius = MathF.Min(max.X - min.X, max.Y - min.Y) * 0.5f * roundness;
 
-        drawContext.DrawFilledRect(min, max, castConfig.BackgroundColor, 3f);
-        drawContext.DrawFilledRect(min, fillMax, castConfig.FillColor, 3f);
-        drawContext.DrawBorder(min, max, castConfig.BorderColor, 3f, 1.2f);
+        var backgroundColor = useCustomColors ? context.CategoryVisual.CastBarBackgroundColor : castConfig.BackgroundColor;
+        var fillColor = useCustomColors ? context.CategoryVisual.CastBarFillColor : castConfig.FillColor;
+        var borderColor = useCustomColors ? context.CategoryVisual.CastBarBorderColor : castConfig.BorderColor;
 
-        var stateColor = cast.IsInterruptible ? castConfig.InterruptibleColor : castConfig.NotInterruptibleColor;
-        drawContext.DrawBorder(min - new Vector2(1f, 1f), max + new Vector2(1f, 1f), stateColor, 4f, 1.1f);
+        drawContext.DrawFilledRect(min, max, backgroundColor, radius);
+        drawContext.DrawFilledRect(min, fillMax, fillColor, radius);
+        drawContext.DrawBorder(min, max, borderColor, radius, 1.2f);
+
+        var stateColor = cast.IsInterruptible
+            ? (useCustomColors ? context.CategoryVisual.CastBarInterruptibleColor : castConfig.InterruptibleColor)
+            : (useCustomColors ? context.CategoryVisual.CastBarNotInterruptibleColor : castConfig.NotInterruptibleColor);
+        drawContext.DrawBorder(min - new Vector2(1f, 1f), max + new Vector2(1f, 1f), stateColor, radius + 1f, 1.1f);
 
         if (castConfig.ShowSpark)
         {

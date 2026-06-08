@@ -9,6 +9,7 @@ using FFXIVClientStructs.FFXIV.Component.GUI;
 using StructsGameObject = FFXIVClientStructs.FFXIV.Client.Game.Object.GameObject;
 using StructsVector3 = FFXIVClientStructs.FFXIV.Common.Math.Vector3;
 using ObjectKind = Dalamud.Game.ClientState.Objects.Enums.ObjectKind;
+using FFXIVHudPlugin.AetherPlates.Widgets.NameText;
 
 namespace FFXIVHudPlugin.AetherPlates.Core;
 
@@ -49,6 +50,7 @@ public sealed class NameplateManager
     private readonly NameplateRenderer renderer;
     private readonly IProjectionService projectionService;
     private readonly NativeNameplateAnchorService nativeAnchorService;
+    private readonly NameplateOcclusionService occlusionService;
     private readonly ITextureProvider textureProvider;
     private readonly PluginConfiguration configuration;
     private readonly Dictionary<ulong, ActorStateCacheEntry> actorCache = new();
@@ -72,6 +74,7 @@ public sealed class NameplateManager
         NameplateRenderer renderer,
         IProjectionService projectionService,
         NativeNameplateAnchorService nativeAnchorService,
+        NameplateOcclusionService occlusionService,
         ITextureProvider textureProvider,
         PluginConfiguration configuration)
     {
@@ -79,6 +82,7 @@ public sealed class NameplateManager
         this.renderer = renderer;
         this.projectionService = projectionService;
         this.nativeAnchorService = nativeAnchorService;
+        this.occlusionService = occlusionService;
         this.textureProvider = textureProvider;
         this.configuration = configuration;
     }
@@ -86,6 +90,7 @@ public sealed class NameplateManager
     public void UpdateAndDraw()
     {
         this.frameCounter++;
+        NameTextLayoutCache.BeginFrame();
         if (!this.configuration.Enabled)
         {
             return;
@@ -170,6 +175,13 @@ public sealed class NameplateManager
                 continue;
             }
 
+            if (this.configuration.EnableOcclusionCulling &&
+                category != NameplateCategory.Boss &&
+                this.IsOccludedByWorldGeometry(obj, screen, offset))
+            {
+                continue;
+            }
+
             this.actorCache[obj.ObjectId] = new ActorStateCacheEntry
             {
                 Tracked = obj,
@@ -225,6 +237,12 @@ public sealed class NameplateManager
             return obj.Distance <= Math.Max(1f, this.configuration.PlayerMaxDistanceYalms);
         }
 
+        // Boss target bar should persist while the encounter is active, even out of normal culling range.
+        if (category == NameplateCategory.Boss && IsBossEncounterEngaged(obj))
+        {
+            return true;
+        }
+
         if (isHostile)
         {
             return obj.Distance <= Math.Max(1f, enemyRange);
@@ -236,6 +254,13 @@ public sealed class NameplateManager
         }
 
         return true;
+    }
+
+    private static bool IsBossEncounterEngaged(TrackedObject obj)
+    {
+        return obj.EnemyState is EnemyNameplateState.Engaged
+            or EnemyNameplateState.Claimed
+            or EnemyNameplateState.Unclaimed;
     }
 
     private bool IsCombatRelevant(TrackedObject obj, NameplateCategory category, bool isHostile)
@@ -521,14 +546,6 @@ public sealed class NameplateManager
             return best.ObjectId;
         }
 
-        // Fallback: allow boss routing when a clearly dominant target exists over surrounding enemies.
-        if (best.IsTarget &&
-            best.MaxHp >= 1_300_000 &&
-            best.MaxHp >= (uint)Math.Ceiling(Math.Max(1u, secondBestMaxHp) * 2.0))
-        {
-            return best.ObjectId;
-        }
-
         return 0;
     }
 
@@ -698,5 +715,17 @@ public sealed class NameplateManager
                screen.Y >= viewport.Pos.Y - 64f &&
                screen.X <= viewport.Pos.X + viewport.Size.X + 64f &&
                screen.Y <= viewport.Pos.Y + viewport.Size.Y + 64f;
+    }
+
+    private bool IsOccludedByWorldGeometry(TrackedObject obj, Vector2 screenAnchor, Vector3 offset)
+    {
+        var yOffset = this.GetAutoProjectionYOffset(obj, offset);
+        var worldAnchor = obj.Position + new Vector3(0f, yOffset, 0f);
+        return this.occlusionService.IsOccluded(
+            this.configuration.OcclusionMode,
+            this.configuration.OcclusionType,
+            screenAnchor,
+            worldAnchor,
+            obj.Distance);
     }
 }

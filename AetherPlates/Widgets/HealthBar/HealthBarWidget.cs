@@ -2,6 +2,7 @@ using FFXIVHudPlugin.AetherPlates.Data;
 using FFXIVHudPlugin.AetherPlates.Layout;
 using FFXIVHudPlugin.AetherPlates.Rendering;
 using FFXIVHudPlugin.AetherPlates.Configuration;
+using Dalamud.Bindings.ImGui;
 using System.Collections.Concurrent;
 using System.Numerics;
 
@@ -35,30 +36,54 @@ public sealed class HealthBarWidget : INameplateWidget
 
         var min = layout.Position;
         var max = layout.Position + layout.Size;
-        var width = max.X - min.X;
-        var fillMax = new Vector2(min.X + width * state.Displayed, max.Y);
-        var damageMax = new Vector2(min.X + width * state.DamageTrail, max.Y);
-        var radius = 4f;
+        var borderInset = 1f;
+        var innerMin = new Vector2(min.X + borderInset, min.Y + borderInset);
+        var innerMax = new Vector2(MathF.Max(innerMin.X, max.X - borderInset), MathF.Max(innerMin.Y, max.Y - borderInset));
+        var width = innerMax.X - innerMin.X;
+        var fillMax = new Vector2(innerMin.X + width * state.Displayed, innerMax.Y);
+        var damageMax = new Vector2(innerMin.X + width * state.DamageTrail, innerMax.Y);
+        var roundness = Math.Clamp(context.CategoryVisual.HealthBarCornerRoundness, 0f, 1f);
+        var radius = MathF.Min(max.X - min.X, max.Y - min.Y) * 0.5f * roundness;
+        var innerRadius = MathF.Max(0f, radius - borderInset);
 
-        var healthColor = context.ActiveStyle?.HealthColor ?? 0xFF4AB34A;
-        var healthBackgroundColor = context.ActiveStyle?.HealthBackgroundColor ?? context.Profile.HealthBar.BackgroundColor;
-        drawContext.DrawFilledRect(min, max, healthBackgroundColor, radius);
-        if (damageMax.X > fillMax.X + 0.5f)
+        var healthColor = context.CategoryVisual.UseCustomHealthBarColors
+            ? context.CategoryVisual.HealthBarFillColor
+            : (context.ActiveStyle?.HealthColor ?? 0xFF4AB34A);
+        var healthBackgroundColor = context.CategoryVisual.UseCustomHealthBarColors
+            ? context.CategoryVisual.HealthBarBackgroundColor
+            : (context.ActiveStyle?.HealthBackgroundColor ?? context.Profile.HealthBar.BackgroundColor);
+        var healthBorderColor = context.CategoryVisual.UseCustomHealthBarColors
+            ? context.CategoryVisual.HealthBarBorderColor
+            : context.Profile.HealthBar.BorderColor;
+        drawContext.DrawFilledRect(innerMin, innerMax, healthBackgroundColor, innerRadius);
+        var hasDamageTrail = damageMax.X > fillMax.X + 0.5f;
+        // Trail underlay: starts from the left edge so HP overlays it cleanly.
+        if (damageMax.X > innerMin.X + 0.5f)
         {
-            drawContext.DrawFilledRect(new Vector2(fillMax.X, min.Y), damageMax, 0xAA2F2FFF, radius);
+            var trailColor = 0xAA2F2FFFu;
+            // Keep the underlay's outer-left contour aligned with the bar shell so no color leaks
+            // through anti-aliased edge pixels on the left.
+            var trailFlags = ImDrawFlags.RoundCornersAll;
+            drawContext.DrawFilledRect(innerMin, damageMax, trailColor, innerRadius, trailFlags);
         }
 
-        drawContext.DrawFilledRect(min, fillMax, healthColor, radius);
-        drawContext.DrawBorder(min, max, context.Profile.HealthBar.BorderColor, radius, 1.3f);
+        if (fillMax.X > innerMin.X + 0.5f)
+        {
+            var fillFlags = hasDamageTrail
+                ? ImDrawFlags.RoundCornersLeft
+                : ImDrawFlags.RoundCornersAll;
+            drawContext.DrawFilledRect(innerMin, fillMax, healthColor, innerRadius, fillFlags);
+        }
+        drawContext.DrawBorder(min, max, healthBorderColor, radius, 1.3f);
 
-        var shieldMax = min.X + width * Math.Clamp(state.Displayed + context.Tracked.ShieldRatio, 0f, 1f);
+        var shieldMax = innerMin.X + width * Math.Clamp(state.Displayed + context.Tracked.ShieldRatio, 0f, 1f);
         if (shieldMax > fillMax.X + 1f)
         {
-            drawContext.DrawFilledRect(new Vector2(fillMax.X, min.Y), new Vector2(shieldMax, max.Y), 0x664AB3E8, radius);
+            drawContext.DrawFilledRect(new Vector2(fillMax.X, innerMin.Y), new Vector2(shieldMax, innerMax.Y), 0x664AB3E8, innerRadius);
         }
 
         DrawBossHealthText(context, drawContext, min, max, currentRatio);
-        DrawTargetIndicatorOverlay(context, drawContext, min, max);
+        DrawTargetIndicatorOverlay(context, drawContext, min, max, radius);
     }
 
     private static float Lerp(float from, float to, float amount)
@@ -66,7 +91,7 @@ public sealed class HealthBarWidget : INameplateWidget
         return from + ((to - from) * Math.Clamp(amount, 0f, 1f));
     }
 
-    private static void DrawTargetIndicatorOverlay(NameplateContext context, DrawContext drawContext, Vector2 min, Vector2 max)
+    private static void DrawTargetIndicatorOverlay(NameplateContext context, DrawContext drawContext, Vector2 min, Vector2 max, float barRadius)
     {
         if (!context.IsTarget || !context.CategoryVisual.TargetIndicatorEnabled)
         {
@@ -78,6 +103,7 @@ public sealed class HealthBarWidget : INameplateWidget
         var style = targetCfg.Style;
         var indicatorScale = Math.Clamp(targetCfg.Scale, 0.25f, 8f);
         var indicatorOffset = targetCfg.Offset;
+        var centerWithHealth = context.CategoryVisual.TargetIndicatorCenterWithHealthBar;
         var indicatorSize = new Vector2(
             Math.Max(4f, targetCfg.Size.X) * indicatorScale,
             Math.Max(4f, targetCfg.Size.Y) * indicatorScale);
@@ -85,6 +111,11 @@ public sealed class HealthBarWidget : INameplateWidget
         var height = max.Y - min.Y;
         var scale = Math.Clamp(context.GlobalScale, 0.5f, 3f);
         var centerY = min.Y + (height * 0.5f);
+        if (centerWithHealth)
+        {
+            // Preserve X offset, but apply Y from the health-bar centerline baseline.
+            indicatorOffset.Y = 0f;
+        }
 
         switch (style)
         {
@@ -92,19 +123,26 @@ public sealed class HealthBarWidget : INameplateWidget
                 var glowExpand = new Vector2(
                     MathF.Max(1f, indicatorSize.X * 0.08f),
                     MathF.Max(1f, indicatorSize.Y * 0.16f));
-                drawContext.DrawGlow(min + indicatorOffset - glowExpand, max + indicatorOffset + glowExpand, color, 2.5f * scale * indicatorScale);
-                drawContext.DrawBorder(min + indicatorOffset - glowExpand * 0.5f, max + indicatorOffset + glowExpand * 0.5f, color, 4f, 1.2f * indicatorScale);
+                var glowRadius = barRadius + MathF.Max(glowExpand.X, glowExpand.Y);
+                var borderRadius = barRadius + (MathF.Max(glowExpand.X, glowExpand.Y) * 0.5f);
+                drawContext.DrawGlow(min + indicatorOffset - glowExpand, max + indicatorOffset + glowExpand, color, glowRadius);
+                drawContext.DrawBorder(min + indicatorOffset - glowExpand * 0.5f, max + indicatorOffset + glowExpand * 0.5f, color, borderRadius, 1.2f * indicatorScale);
                 break;
 
             case TargetIndicatorStyle.TopArrow:
             {
                 using var fontScope = GameFontRegistry.PushFont(context.FontFamilyId);
+                const string glyph = "▼";
                 var fontSize = Math.Max(8f, indicatorSize.Y * 1.25f) * scale;
+                var glyphSize = MeasureText(glyph, fontSize);
+                var baseY = centerWithHealth
+                    ? centerY - (glyphSize.Y * 0.5f)
+                    : min.Y - glyphSize.Y;
                 var pos = new Vector2(
-                    min.X + (width * 0.5f) - (indicatorSize.X * 0.25f),
-                    min.Y - indicatorSize.Y) + indicatorOffset;
-                drawContext.DrawText(pos + new Vector2(1f, 1f), 0xCC000000, "▼", fontSize);
-                drawContext.DrawText(pos, color, "▼", fontSize);
+                    min.X + (width * 0.5f) - (glyphSize.X * 0.5f),
+                    baseY) + indicatorOffset;
+                drawContext.DrawText(pos + new Vector2(1f, 1f), 0xCC000000, glyph, fontSize);
+                drawContext.DrawText(pos, color, glyph, fontSize);
                 break;
             }
 
@@ -112,8 +150,13 @@ public sealed class HealthBarWidget : INameplateWidget
             {
                 using var fontScope = GameFontRegistry.PushFont(context.FontFamilyId);
                 var fontSize = Math.Max(8f, indicatorSize.Y * 1.25f) * scale;
-                var leftPos = new Vector2(min.X - indicatorSize.X, centerY - (indicatorSize.Y * 0.5f)) + indicatorOffset;
-                var rightPos = new Vector2(max.X + (indicatorSize.X * 0.15f), centerY - (indicatorSize.Y * 0.5f)) + indicatorOffset;
+                var leftGlyph = ">>";
+                var rightGlyph = "<<";
+                var leftGlyphSize = MeasureText(leftGlyph, fontSize);
+                var rightGlyphSize = MeasureText(rightGlyph, fontSize);
+                var y = centerY - (leftGlyphSize.Y * 0.5f);
+                var leftPos = new Vector2(min.X - indicatorSize.X, y) + indicatorOffset;
+                var rightPos = new Vector2(max.X + (indicatorSize.X * 0.15f), centerY - (rightGlyphSize.Y * 0.5f)) + indicatorOffset;
                 drawContext.DrawText(leftPos + new Vector2(1f, 1f), 0xCC000000, ">>", fontSize);
                 drawContext.DrawText(rightPos + new Vector2(1f, 1f), 0xCC000000, "<<", fontSize);
                 drawContext.DrawText(leftPos, color, ">>", fontSize);
@@ -126,8 +169,10 @@ public sealed class HealthBarWidget : INameplateWidget
             {
                 using var fontScope = GameFontRegistry.PushFont(context.FontFamilyId);
                 var fontSize = Math.Max(8f, indicatorSize.Y * 1.25f) * scale;
-                var leftPos = new Vector2(min.X - (indicatorSize.X * 0.65f), centerY - (indicatorSize.Y * 0.5f)) + indicatorOffset;
-                var rightPos = new Vector2(max.X + (indicatorSize.X * 0.08f), centerY - (indicatorSize.Y * 0.5f)) + indicatorOffset;
+                var leftGlyphSize = MeasureText(">", fontSize);
+                var rightGlyphSize = MeasureText("<", fontSize);
+                var leftPos = new Vector2(min.X - (indicatorSize.X * 0.65f), centerY - (leftGlyphSize.Y * 0.5f)) + indicatorOffset;
+                var rightPos = new Vector2(max.X + (indicatorSize.X * 0.08f), centerY - (rightGlyphSize.Y * 0.5f)) + indicatorOffset;
                 drawContext.DrawText(leftPos + new Vector2(1f, 1f), 0xCC000000, ">", fontSize);
                 drawContext.DrawText(rightPos + new Vector2(1f, 1f), 0xCC000000, "<", fontSize);
                 drawContext.DrawText(leftPos, color, ">", fontSize);
@@ -141,6 +186,12 @@ public sealed class HealthBarWidget : INameplateWidget
     {
         var alpha = (uint)Math.Clamp((int)MathF.Round(((color >> 24) & 0xFF) * opacity), 0, 255);
         return (color & 0x00FFFFFF) | (alpha << 24);
+    }
+
+    private static Vector2 MeasureText(string text, float fontSize)
+    {
+        var baseFontSize = Math.Max(1f, ImGui.GetFontSize());
+        return ImGui.CalcTextSize(text) * (fontSize / baseFontSize);
     }
 
     private static void DrawBossHealthText(

@@ -1,15 +1,16 @@
+using Dalamud.Bindings.ImGui;
+using Dalamud.Game.ClientState.Objects.Enums;
+using FFXIVHudPlugin.AetherPlates.Configuration;
 using FFXIVHudPlugin.AetherPlates.Data;
 using FFXIVHudPlugin.AetherPlates.Layout;
 using FFXIVHudPlugin.AetherPlates.Rendering;
-using FFXIVHudPlugin.AetherPlates.Configuration;
-using Dalamud.Bindings.ImGui;
 using System.Numerics;
 
-namespace FFXIVHudPlugin.AetherPlates.Widgets.NameText;
+namespace FFXIVHudPlugin.AetherPlates.Widgets.TitleText;
 
-public sealed class NameTextWidget : INameplateWidget
+public sealed class TitleTextWidget : INameplateWidget
 {
-    public string Id => "name_text";
+    public string Id => "title_text";
 
     public Vector2 GetDesiredSize(NameplateContext context)
     {
@@ -18,21 +19,36 @@ public sealed class NameTextWidget : INameplateWidget
 
     public void Draw(NameplateContext context, DrawContext drawContext, WidgetLayout layout)
     {
-        var displayText = context.Tracked.Name;
+        if (context.Tracked.Kind != ObjectKind.Pc)
+        {
+            return;
+        }
+
+        var displayText = context.Tracked.Title;
+        if (string.IsNullOrWhiteSpace(displayText))
+        {
+            return;
+        }
+
         var truncateAt = Math.Max(6, context.Profile.NameText.TruncateAt);
         if (displayText.Length > truncateAt)
         {
             displayText = $"{displayText[..Math.Max(3, truncateAt - 3)]}...";
         }
 
-        var baseFontSizeSetting = Math.Clamp(context.CategoryVisual.NameTextFontSize, 8f, 64f);
+        var baseFontSizeSetting = Math.Clamp(context.CategoryVisual.TitleTextFontSize, 8f, 64f);
         var fontSize = baseFontSizeSetting * Math.Clamp(context.Profile.NameText.FontScale, 0.7f, 2.4f) * Math.Clamp(context.GlobalScale, 0.5f, 3.0f);
         var scaleFactor = Math.Clamp(context.GlobalScale, 0.5f, 3.0f);
         var stroke = Math.Max(1f, 1.2f * scaleFactor);
-        using var fontScope = GameFontRegistry.PushFont(context.FontFamilyId);
+
+        var useGlobalFont = context.CategoryVisual.TitleTextUseGlobalFont ?? context.CategoryVisual.TitleTextFontFamilyId == 0;
+        var fontId = useGlobalFont
+            ? context.FontFamilyId
+            : GameFontRegistry.NormalizeFamilyId(context.CategoryVisual.TitleTextFontFamilyId);
+        using var fontScope = GameFontRegistry.PushFont(fontId);
         var baseFontSize = Math.Max(1f, ImGui.GetFontSize());
         var textSize = ImGui.CalcTextSize(displayText) * (fontSize / baseFontSize);
-        var align = context.CategoryVisual.NameTextAlignment;
+        var align = context.CategoryVisual.TitleTextAlignment;
         var alignedX = align switch
         {
             NameplateTextAlignment.Left => layout.Position.X,
@@ -42,8 +58,6 @@ public sealed class NameTextWidget : INameplateWidget
         var pos = new Vector2(
             alignedX,
             layout.Position.Y + MathF.Max(0f, (layout.Size.Y - textSize.Y) * 0.5f));
-
-        NameTextLayoutCache.Set(context.Tracked.ObjectId, pos, textSize);
 
         if (context.Profile.NameText.Outline)
         {

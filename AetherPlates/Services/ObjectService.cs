@@ -1,6 +1,7 @@
 using Dalamud.Game.ClientState.Objects;
 using Dalamud.Game.ClientState.Objects.Enums;
 using Dalamud.Game.ClientState.Objects.Types;
+using Dalamud.Game.Gui.NamePlate;
 using Dalamud.Game.ClientState.Party;
 using Dalamud.Game.ClientState.Statuses;
 using Lumina.Excel.Sheets;
@@ -19,6 +20,7 @@ public sealed class ObjectService
     private readonly IPartyList partyList;
     private readonly IClientState clientState;
     private readonly IDataManager dataManager;
+    private readonly NativeNameplateAnchorService nativeNameplateAnchorService;
     private readonly Dictionary<uint, (string Name, uint IconId, bool IsDebuff)> statusMetaCache = new();
 
     public ObjectService(
@@ -26,13 +28,15 @@ public sealed class ObjectService
         ITargetManager targetManager,
         IPartyList partyList,
         IClientState clientState,
-        IDataManager dataManager)
+        IDataManager dataManager,
+        NativeNameplateAnchorService nativeNameplateAnchorService)
     {
         this.objectTable = objectTable;
         this.targetManager = targetManager;
         this.partyList = partyList;
         this.clientState = clientState;
         this.dataManager = dataManager;
+        this.nativeNameplateAnchorService = nativeNameplateAnchorService;
     }
 
     public IReadOnlyList<TrackedObject> BuildSnapshot()
@@ -112,6 +116,8 @@ public sealed class ObjectService
             ? new CastSnapshot(false, string.Empty, 0f, 0f, false)
             : BuildCastSnapshot(character, this.dataManager);
         var nameplateIconId = ResolveNameplateIconId(obj);
+        var title = ResolvePlayerTitle(character, objectId, this.nativeNameplateAnchorService);
+        var jobIconId = ResolveJobIconId(character, objectId, this.nativeNameplateAnchorService);
 
         var isFriendly = isPlayerCharacter ||
                          isPartyMember ||
@@ -138,6 +144,7 @@ public sealed class ObjectService
             obj.IsTargetable,
             distance,
             character?.ClassJob.RowId ?? 0u,
+            jobIconId,
             character?.Level ?? 0,
             targetId != 0 && targetId == obj.GameObjectId,
             focusId != 0 && focusId == obj.GameObjectId,
@@ -151,6 +158,7 @@ public sealed class ObjectService
             obj.SubKind,
             nameplateIconId,
             isPlayerCharacter,
+            title,
             statuses,
             cast);
         return true;
@@ -367,6 +375,86 @@ public sealed class ObjectService
         }
 
         return actionRow.Name.ExtractText() ?? string.Empty;
+    }
+
+    private static string ResolvePlayerTitle(ICharacter? character, ulong objectId, NativeNameplateAnchorService nativeNameplateAnchorService)
+    {
+        if (nativeNameplateAnchorService.TryGetMeta(objectId, out var nativeMeta) &&
+            !string.IsNullOrWhiteSpace(nativeMeta.Title))
+        {
+            return NormalizePlayerTitle(nativeMeta.Title);
+        }
+
+        if (character is null || character.ObjectKind != ObjectKind.Pc)
+        {
+            return string.Empty;
+        }
+
+        return string.Empty;
+    }
+
+    private static string NormalizePlayerTitle(string rawTitle)
+    {
+        var title = rawTitle.Trim();
+        if (title.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        // Native title strings can include wrapper glyphs (for example 《 》/« »).
+        // Depending on selected font, these may render as '?' placeholders.
+        // Strip only decorative outer symbols so the core title remains.
+        while (title.Length >= 2 && IsDecorativeBoundary(title[0]) && IsDecorativeBoundary(title[^1]))
+        {
+            title = title[1..^1].Trim();
+        }
+
+        if (title.Length >= 2 &&
+            title[0] == '?' &&
+            title[^1] == '?' &&
+            title.IndexOf('?', 1, title.Length - 2) < 0)
+        {
+            title = title[1..^1].Trim();
+        }
+
+        return title;
+    }
+
+    private static bool IsDecorativeBoundary(char c)
+    {
+        if (char.IsLetterOrDigit(c))
+        {
+            return false;
+        }
+
+        return c switch
+        {
+            '\'' or '"' or '(' or ')' or '[' or ']' or '{' or '}' => false,
+            _ => true,
+        };
+    }
+
+    private static uint ResolveJobIconId(ICharacter? character, ulong objectId, NativeNameplateAnchorService nativeNameplateAnchorService)
+    {
+        if (nativeNameplateAnchorService.TryGetMeta(objectId, out var nativeMeta) &&
+            nativeMeta.JobIconId != 0)
+        {
+            return nativeMeta.JobIconId;
+        }
+
+        if (character is null)
+        {
+            return 0u;
+        }
+
+        var classJobId = character.ClassJob.RowId;
+        if (classJobId == 0)
+        {
+            return 0u;
+        }
+
+        // Fallback to standard job icon family when native nameplate icon is unavailable.
+        return classJobId + 62000u;
     }
 
 }

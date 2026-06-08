@@ -195,7 +195,10 @@ public sealed unsafe class Plugin : IDalamudPlugin
         }
 
         this.ExecuteDrawSection("config draw", this.configWindow.Draw);
-        this.ExecuteDrawSection("aetherplates draw", this.nameplateManager.UpdateAndDraw);
+        if (this.ShouldDrawAetherPlates())
+        {
+            this.ExecuteDrawSection("aetherplates draw", this.nameplateManager.UpdateAndDraw);
+        }
         this.ExecuteDrawSection(
             "action camera overlay",
             () => ActionCameraOverlay.Draw(this.configuration.ActionCamera, this.actionCameraPlugin.RuntimeState));
@@ -213,6 +216,31 @@ public sealed unsafe class Plugin : IDalamudPlugin
             return false;
         }
 
+        if (this.IsSuppressedForCutsceneOrTransition())
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private bool ShouldDrawAetherPlates()
+    {
+        if (!this.clientState.IsLoggedIn || this.objectTable.LocalPlayer is null)
+        {
+            return false;
+        }
+
+        if (this.IsSuppressedForCutsceneOrTransition())
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private bool IsSuppressedForCutsceneOrTransition()
+    {
         if (this.condition[ConditionFlag.OccupiedInCutSceneEvent] ||
             this.condition[ConditionFlag.WatchingCutscene] ||
             this.condition[ConditionFlag.WatchingCutscene78] ||
@@ -220,15 +248,15 @@ public sealed unsafe class Plugin : IDalamudPlugin
             this.condition[ConditionFlag.BetweenAreas51])
         {
             this.hideHudUntilUtc = DateTime.UtcNow + TransitionHideGrace;
-            return false;
+            return true;
         }
 
         if (DateTime.UtcNow < this.hideHudUntilUtc)
         {
-            return false;
+            return true;
         }
 
-        return true;
+        return false;
     }
 
     private void ToggleConfig()
@@ -534,9 +562,11 @@ public sealed unsafe class Plugin : IDalamudPlugin
             this.targetManager,
             this.partyList,
             this.clientState,
-            this.dataManager);
+            this.dataManager,
+            this.nativeNameplateAnchorService);
         var tracker = new AetherPlates.Core.NameplateTracker(objectService);
         var projectionService = new AetherPlates.Services.ProjectionService();
+        var occlusionService = new AetherPlates.Services.NameplateOcclusionService();
         var nameplateRenderer = new AetherPlates.Core.NameplateRenderer(
             widgetRegistry,
             layoutEngine,
@@ -548,6 +578,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
             nameplateRenderer,
             projectionService,
             this.nativeNameplateAnchorService,
+            occlusionService,
             this.textureProvider,
             this.configuration.AetherPlates);
     }

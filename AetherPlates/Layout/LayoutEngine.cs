@@ -25,6 +25,7 @@ public sealed class LayoutEngine
         var scaledOffset = rule.Offset * scale;
         var anchorPosition = ResolveAnchorPosition(context.AnchorScreenPosition, size, rule.Anchor);
         var finalPosition = anchorPosition + scaledOffset;
+        finalPosition = ApplyHealthBarCenterYAlignment(context, widgetId, finalPosition, size, scale);
 
         return new WidgetLayout(
             widgetId,
@@ -33,6 +34,44 @@ public sealed class LayoutEngine
             size,
             finalPosition,
             rule.Visible);
+    }
+
+    private static Vector2 ApplyHealthBarCenterYAlignment(
+        NameplateContext context,
+        string widgetId,
+        Vector2 currentPosition,
+        Vector2 currentSize,
+        float scale)
+    {
+        var shouldCenter = widgetId switch
+        {
+            "buff_row" => context.CategoryVisual.BuffRowCenterWithHealthBar,
+            "debuff_row" => context.CategoryVisual.DebuffRowCenterWithHealthBar,
+            _ => false,
+        };
+
+        if (!shouldCenter)
+        {
+            return currentPosition;
+        }
+
+        if (!context.CategoryVisual.WidgetLayouts.TryGetValue("health_bar", out var healthRule))
+        {
+            healthRule = WidgetLayoutRule.Default("health_bar");
+        }
+
+        var healthBaseSize = healthRule.Size;
+        if (healthBaseSize.X <= 0f || healthBaseSize.Y <= 0f)
+        {
+            healthBaseSize = new Vector2(context.Profile.HealthBar.Width, context.Profile.HealthBar.Height);
+        }
+
+        var healthSize = healthBaseSize * scale;
+        var healthAnchorPosition = ResolveAnchorPosition(context.AnchorScreenPosition, healthSize, healthRule.Anchor);
+        var healthPosition = healthAnchorPosition + (healthRule.Offset * scale);
+        var healthCenterY = healthPosition.Y + (healthSize.Y * 0.5f);
+        var centeredY = healthCenterY - (currentSize.Y * 0.5f);
+        return new Vector2(currentPosition.X, centeredY);
     }
 
     private static Vector2 ResolveAnchorPosition(Vector2 center, Vector2 size, WidgetAnchor anchor)

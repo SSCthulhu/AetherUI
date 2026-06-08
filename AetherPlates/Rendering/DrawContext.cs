@@ -45,6 +45,11 @@ public sealed class DrawContext
         this.drawList.AddRectFilled(min, max, color, rounding);
     }
 
+    public void DrawFilledRect(Vector2 min, Vector2 max, uint color, float rounding, ImDrawFlags roundingFlags)
+    {
+        this.drawList.AddRectFilled(min, max, color, rounding, roundingFlags);
+    }
+
     public void DrawImage(ISharedImmediateTexture texture, Vector2 min, Vector2 max, uint tintColor)
     {
         var wrap = texture.GetWrapOrEmpty();

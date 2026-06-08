@@ -126,6 +126,53 @@ public sealed class ConfigWindow
         }
 
         ImGui.Spacing();
+        ImGui.Separator();
+        ImGui.Spacing();
+        ImGui.TextUnformatted("Occlusion Culling");
+
+        var enableOcclusionCulling = this.config.EnableOcclusionCulling;
+        if (ImGui.Checkbox("Hide Nameplates Behind Geometry", ref enableOcclusionCulling))
+        {
+            this.config.EnableOcclusionCulling = enableOcclusionCulling;
+            this.onConfigChanged();
+        }
+
+        if (this.config.EnableOcclusionCulling)
+        {
+            var modeIndex = this.config.OcclusionMode switch
+            {
+                NameplateOcclusionMode.Simple => 1,
+                NameplateOcclusionMode.Full => 2,
+                _ => 0,
+            };
+            var modeLabels = new[] { "Disabled", "Simple", "Full" };
+            if (ImGui.Combo("Occlusion Mode", ref modeIndex, modeLabels, modeLabels.Length))
+            {
+                this.config.OcclusionMode = modeIndex switch
+                {
+                    2 => NameplateOcclusionMode.Full,
+                    1 => NameplateOcclusionMode.Simple,
+                    _ => NameplateOcclusionMode.None,
+                };
+                this.onConfigChanged();
+            }
+
+            var typeIndex = this.config.OcclusionType == NameplateOcclusionType.WallsAndObjects ? 1 : 0;
+            var typeLabels = new[] { "Walls", "Walls and Objects" };
+            if (ImGui.Combo("Occlusion Type", ref typeIndex, typeLabels, typeLabels.Length))
+            {
+                this.config.OcclusionType = typeIndex == 1
+                    ? NameplateOcclusionType.WallsAndObjects
+                    : NameplateOcclusionType.Walls;
+                this.onConfigChanged();
+            }
+
+            ImGui.TextColored(
+                0xFF9AA1AB,
+                "Simple uses one LOS ray. Full samples center/left/right rays for fewer false occlusions.");
+        }
+
+        ImGui.Spacing();
         ImGui.TextColored(0xFF9AA1AB, "Per-category widget visibility and layout are configured in Advanced Category tabs above.");
     }
 

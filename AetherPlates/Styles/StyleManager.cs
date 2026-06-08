@@ -52,6 +52,22 @@ public sealed class StyleManager
             Size = new System.Numerics.Vector2(180f, 18f),
             Visible = true,
         };
+        style.WidgetLayouts["title_text"] = new WidgetLayoutRule
+        {
+            WidgetId = "title_text",
+            Anchor = Layout.WidgetAnchor.Top,
+            Offset = new System.Numerics.Vector2(20f, -58f),
+            Size = new System.Numerics.Vector2(180f, 18f),
+            Visible = true,
+        };
+        style.WidgetLayouts["job_icon"] = new WidgetLayoutRule
+        {
+            WidgetId = "job_icon",
+            Anchor = Layout.WidgetAnchor.TopLeft,
+            Offset = new System.Numerics.Vector2(-96f, -42f),
+            Size = new System.Numerics.Vector2(20f, 20f),
+            Visible = true,
+        };
         style.WidgetLayouts["target_indicator"] = new WidgetLayoutRule
         {
             WidgetId = "target_indicator",

@@ -58,6 +58,13 @@ public sealed class BuffRowWidget : INameplateWidget
                 continue;
             }
 
+            // Runtime plates should not render placeholder blocks for unresolved status metadata/icons.
+            // Keep this behavior only for designer preview objects.
+            if (!isPreview && status.IconId == 0)
+            {
+                continue;
+            }
+
             if (!isPreview && onlyMine && status.SourceId != localId)
             {
                 continue;

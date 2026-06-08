@@ -18,6 +18,9 @@ public sealed class PluginConfiguration
     public bool EnableDynamicCombatRange { get; set; } = false;
     public float CombatEnemyMaxDistanceYalms { get; set; } = 45f;
     public float CombatFriendlyMaxDistanceYalms { get; set; } = 32f;
+    public bool EnableOcclusionCulling { get; set; } = false;
+    public NameplateOcclusionMode OcclusionMode { get; set; } = NameplateOcclusionMode.Simple;
+    public NameplateOcclusionType OcclusionType { get; set; } = NameplateOcclusionType.Walls;
     public System.Numerics.Vector2 BossTargetBarAnchorOffset { get; set; } = new(0f, 0f);
     public int DefaultFontFamilyId { get; set; } = 0;
     public NameplateCategoryVisibility CategoryVisibility { get; set; } = new();
@@ -144,6 +147,16 @@ public sealed class PluginConfiguration
     private void EnsureCategoryVisualDefaults()
     {
         this.DefaultFontFamilyId = Math.Max(0, this.DefaultFontFamilyId);
+        if (!Enum.IsDefined(typeof(NameplateOcclusionMode), this.OcclusionMode))
+        {
+            this.OcclusionMode = NameplateOcclusionMode.Simple;
+        }
+
+        if (!Enum.IsDefined(typeof(NameplateOcclusionType), this.OcclusionType))
+        {
+            this.OcclusionType = NameplateOcclusionType.Walls;
+        }
+
         if (!float.IsFinite(this.BossTargetBarAnchorOffset.X) || !float.IsFinite(this.BossTargetBarAnchorOffset.Y))
         {
             this.BossTargetBarAnchorOffset = System.Numerics.Vector2.Zero;
@@ -233,6 +246,8 @@ public sealed class PluginConfiguration
         profile.DebuffRow ??= new DebuffRowWidgetConfig();
         profile.Styles ??= new List<NameplateStyle> { StyleManager.CreateFallback() };
         profile.EnabledWidgets.Add("cast_bar");
+        profile.EnabledWidgets.Add("title_text");
+        profile.EnabledWidgets.Add("job_icon");
         profile.EnabledWidgets.Add("buff_row");
         profile.EnabledWidgets.Add("debuff_row");
         MigrateBuffDebuffRowDefaultLayout(profile);
@@ -352,7 +367,32 @@ public sealed class PluginConfiguration
                 nameLayout.Offset = new System.Numerics.Vector2(20f, -39f);
             }
         }
+
+        if (style.WidgetLayouts.TryGetValue("title_text", out var titleLayout))
+        {
+            var isLegacyCentered = titleLayout.Anchor == Layout.WidgetAnchor.Top &&
+                                   Math.Abs(titleLayout.Offset.X - 20f) <= 2f &&
+                                   Math.Abs(titleLayout.Offset.Y + 18f) <= 2f;
+            if (isLegacyCentered)
+            {
+                titleLayout.Anchor = Layout.WidgetAnchor.Top;
+                titleLayout.Offset = new System.Numerics.Vector2(20f, -58f);
+            }
+        }
     }
+}
+
+public enum NameplateOcclusionMode
+{
+    None = 0,
+    Simple = 1,
+    Full = 2,
+}
+
+public enum NameplateOcclusionType
+{
+    Walls = 0,
+    WallsAndObjects = 1,
 }
 
 [Serializable]
@@ -532,6 +572,18 @@ public enum NameplateTextAlignment
     Right = 2,
 }
 
+public enum NameplateTextEdge
+{
+    Left = 0,
+    Right = 1,
+}
+
+public enum NameplateJobIconType
+{
+    Type1 = 0,
+    Type2 = 1,
+}
+
 [Serializable]
 public sealed class CastBarWidgetConfig
 {
@@ -573,6 +625,11 @@ public sealed class DebuffRowWidgetConfig
 public sealed class CategoryVisualSettings
 {
     public bool HealthBarEnabled { get; set; } = true;
+    public float HealthBarCornerRoundness { get; set; } = 0.5f;
+    public bool UseCustomHealthBarColors { get; set; } = false;
+    public uint HealthBarFillColor { get; set; } = 0xFF4AB34A;
+    public uint HealthBarBackgroundColor { get; set; } = 0xB81C1C1C;
+    public uint HealthBarBorderColor { get; set; } = 0xFF000000;
     public bool BossShowHpValueText { get; set; } = false;
     public bool BossShowHpPercentText { get; set; } = false;
     public float BossHpValueTextFontSize { get; set; } = 14f;
@@ -586,14 +643,33 @@ public sealed class CategoryVisualSettings
     public bool NameTextEnabled { get; set; } = true;
     public float NameTextFontSize { get; set; } = 16f;
     public NameplateTextAlignment NameTextAlignment { get; set; } = NameplateTextAlignment.Center;
+    public bool TitleTextEnabled { get; set; } = false;
+    public float TitleTextFontSize { get; set; } = 14f;
+    public NameplateTextAlignment TitleTextAlignment { get; set; } = NameplateTextAlignment.Center;
+    public bool? TitleTextUseGlobalFont { get; set; } = null;
+    public int TitleTextFontFamilyId { get; set; } = 0;
+    public bool JobIconEnabled { get; set; } = false;
+    public NameplateTextEdge JobIconNameTextEdge { get; set; } = NameplateTextEdge.Left;
+    public float JobIconNameTextGap { get; set; } = 4f;
+    public NameplateJobIconType JobIconType { get; set; } = NameplateJobIconType.Type1;
     public bool TargetIndicatorEnabled { get; set; } = true;
+    public bool TargetIndicatorCenterWithHealthBar { get; set; } = false;
     public bool CastBarEnabled { get; set; } = true;
+    public float CastBarCornerRoundness { get; set; } = 0.5f;
+    public bool UseCustomCastBarColors { get; set; } = false;
+    public uint CastBarFillColor { get; set; } = 0xFFE4D59B;
+    public uint CastBarBackgroundColor { get; set; } = 0xB81C1C1C;
+    public uint CastBarBorderColor { get; set; } = 0xFF000000;
+    public uint CastBarInterruptibleColor { get; set; } = 0xFF56D980;
+    public uint CastBarNotInterruptibleColor { get; set; } = 0xFF4A4ACC;
     public bool CastBarTextEnabled { get; set; } = true;
     public float CastBarTextFontSize { get; set; } = 14f;
     public NameplateTextAlignment CastBarTextAlignment { get; set; } = NameplateTextAlignment.Center;
     public bool BuffRowEnabled { get; set; } = true;
+    public bool BuffRowCenterWithHealthBar { get; set; } = false;
     public float BuffRowScale { get; set; } = 1.0f;
     public bool DebuffRowEnabled { get; set; } = true;
+    public bool DebuffRowCenterWithHealthBar { get; set; } = false;
     public float DebuffRowScale { get; set; } = 1.0f;
     public bool? UseGlobalFont { get; set; } = null;
     public int FontFamilyId { get; set; } = 0;
@@ -626,6 +702,7 @@ public sealed class CategoryVisualSettings
         this.FontFamilyId = Math.Max(0, this.FontFamilyId);
         this.BossHpValueTextFontFamilyId = Math.Max(0, this.BossHpValueTextFontFamilyId);
         this.BossHpPercentTextFontFamilyId = Math.Max(0, this.BossHpPercentTextFontFamilyId);
+        this.TitleTextFontFamilyId = Math.Max(0, this.TitleTextFontFamilyId);
         this.BossHpValueTextFontSize = Math.Clamp(this.BossHpValueTextFontSize, 8f, 64f);
         this.BossHpPercentTextFontSize = Math.Clamp(this.BossHpPercentTextFontSize, 8f, 64f);
         if (!float.IsFinite(this.BossHpValueTextOffset.X) || !float.IsFinite(this.BossHpValueTextOffset.Y))
@@ -638,19 +715,42 @@ public sealed class CategoryVisualSettings
             this.BossHpPercentTextOffset = new System.Numerics.Vector2(-44f, -20f);
         }
         this.NameTextFontSize = Math.Clamp(this.NameTextFontSize, 8f, 64f);
+        this.TitleTextFontSize = Math.Clamp(this.TitleTextFontSize, 8f, 64f);
         this.CastBarTextFontSize = Math.Clamp(this.CastBarTextFontSize, 8f, 64f);
+        this.HealthBarCornerRoundness = Math.Clamp(float.IsFinite(this.HealthBarCornerRoundness) ? this.HealthBarCornerRoundness : 0.5f, 0f, 1f);
+        this.CastBarCornerRoundness = Math.Clamp(float.IsFinite(this.CastBarCornerRoundness) ? this.CastBarCornerRoundness : 0.5f, 0f, 1f);
         if (!Enum.IsDefined(typeof(NameplateTextAlignment), this.NameTextAlignment))
         {
             this.NameTextAlignment = NameplateTextAlignment.Center;
+        }
+        if (!Enum.IsDefined(typeof(NameplateTextAlignment), this.TitleTextAlignment))
+        {
+            this.TitleTextAlignment = NameplateTextAlignment.Center;
         }
         if (!Enum.IsDefined(typeof(NameplateTextAlignment), this.CastBarTextAlignment))
         {
             this.CastBarTextAlignment = NameplateTextAlignment.Center;
         }
+        if (!Enum.IsDefined(typeof(NameplateTextEdge), this.JobIconNameTextEdge))
+        {
+            this.JobIconNameTextEdge = NameplateTextEdge.Left;
+        }
+
+        if (!Enum.IsDefined(typeof(NameplateJobIconType), this.JobIconType))
+        {
+            this.JobIconType = NameplateJobIconType.Type1;
+        }
+
+        this.JobIconNameTextGap = Math.Clamp(
+            float.IsFinite(this.JobIconNameTextGap) ? this.JobIconNameTextGap : 4f,
+            -128f,
+            128f);
         this.BuffRowScale = Math.Clamp(this.BuffRowScale, 0.25f, 8f);
         this.DebuffRowScale = Math.Clamp(this.DebuffRowScale, 0.25f, 8f);
         CopyFallbackLayout("health_bar");
         CopyFallbackLayout("name_text");
+        CopyFallbackLayout("title_text");
+        CopyFallbackLayout("job_icon");
         CopyFallbackLayout("target_indicator");
         CopyFallbackLayout("cast_bar");
         CopyFallbackLayout("cast_bar_text");
@@ -674,6 +774,8 @@ public sealed class CategoryVisualSettings
         {
             "health_bar" => this.HealthBarEnabled,
             "name_text" => this.NameTextEnabled,
+            "title_text" => this.TitleTextEnabled,
+            "job_icon" => this.JobIconEnabled,
             "target_indicator" => this.TargetIndicatorEnabled,
             "cast_bar" => this.CastBarEnabled,
             "cast_bar_text" => this.CastBarTextEnabled,
@@ -692,6 +794,12 @@ public sealed class CategoryVisualSettings
                 break;
             case "name_text":
                 this.NameTextEnabled = enabled;
+                break;
+            case "title_text":
+                this.TitleTextEnabled = enabled;
+                break;
+            case "job_icon":
+                this.JobIconEnabled = enabled;
                 break;
             case "target_indicator":
                 this.TargetIndicatorEnabled = enabled;
@@ -724,6 +832,16 @@ public sealed class CategoryVisualSettings
         if (this.NameTextEnabled)
         {
             set.Add("name_text");
+        }
+
+        if (this.TitleTextEnabled)
+        {
+            set.Add("title_text");
+        }
+
+        if (this.JobIconEnabled)
+        {
+            set.Add("job_icon");
         }
 
         if (this.TargetIndicatorEnabled)

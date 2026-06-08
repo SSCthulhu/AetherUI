@@ -16,9 +16,10 @@ public sealed class LayoutEditorWindow
 {
     private static readonly Dictionary<string, string> WidgetLabelsById = new(StringComparer.Ordinal)
     {
+        ["job_icon"] = "Job Icon",
         ["health_bar"] = "Health Bar",
         ["name_text"] = "Name Text",
-        ["target_indicator"] = "Target Indicator",
+        ["title_text"] = "Title Text",
         ["cast_bar"] = "Cast Bar",
         ["cast_bar_text"] = "Cast Bar Text",
         ["buff_row"] = "Buff Row",
@@ -28,13 +29,27 @@ public sealed class LayoutEditorWindow
     // Top-most first for click hit-testing.
     private static readonly string[] WidgetHitTestOrder =
     {
+        "job_icon",
         "name_text",
+        "title_text",
         "target_indicator",
         "cast_bar_text",
         "cast_bar",
         "buff_row",
         "debuff_row",
         "health_bar",
+    };
+
+    private static readonly string[] WidgetEditorOrder =
+    {
+        "health_bar",
+        "name_text",
+        "title_text",
+        "job_icon",
+        "cast_bar",
+        "cast_bar_text",
+        "buff_row",
+        "debuff_row",
     };
 
     public sealed record CategoryEditorTarget(
@@ -214,7 +229,10 @@ public sealed class LayoutEditorWindow
             var layouts = this.BuildPreviewWidgetLayouts(context, target.Visuals.EnabledWidgetIdsSet);
             if (clickedInCanvas)
             {
-                this.selectedWidgetId = HitTestWidget(mousePos, layouts);
+                var clickedWidget = HitTestWidget(mousePos, layouts);
+                this.selectedWidgetId = string.Equals(clickedWidget, "target_indicator", StringComparison.Ordinal)
+                    ? "health_bar"
+                    : clickedWidget;
             }
 
             this.previewRenderer.DrawNameplate(context, target.Visuals.EnabledWidgetIdsSet);
@@ -319,6 +337,14 @@ public sealed class LayoutEditorWindow
         foreach (var widget in this.widgetRegistry.Widgets)
         {
             if (!enabledWidgetIds.Contains(widget.Id))
+            {
+                continue;
+            }
+
+            // Target indicator positioning is derived from health bar options.
+            // Exclude it from preview recenter bounds so "Center with HP Bar" does
+            // not shift the entire preview plate.
+            if (string.Equals(widget.Id, "target_indicator", StringComparison.Ordinal))
             {
                 continue;
             }
@@ -511,6 +537,7 @@ public sealed class LayoutEditorWindow
             true,
             15f,
             19,
+            62101,
             100,
             true,
             false,
@@ -524,6 +551,7 @@ public sealed class LayoutEditorWindow
             subKind,
             0,
             isPlayer,
+            "of the Seventh Dawn",
             statuses,
             cast);
     }
@@ -534,34 +562,82 @@ public sealed class LayoutEditorWindow
         ImGui.Separator();
         ImGui.Spacing();
         ImGui.TextUnformatted("Widget Settings");
-        ImGui.TextColored(0xFF9AA1AB, "Click a widget in the preview to edit only that widget's settings.");
+        ImGui.TextColored(0xFF9AA1AB, "Click a widget in preview or select one from Plate Elements.");
 
-        var selectedWidgetId = this.selectedWidgetId;
-        if (string.Equals(selectedWidgetId, "target_indicator", StringComparison.Ordinal))
+        if (string.IsNullOrWhiteSpace(this.selectedWidgetId) ||
+            Array.IndexOf(WidgetEditorOrder, this.selectedWidgetId) < 0)
         {
-            selectedWidgetId = "health_bar";
-        }
-
-        if (string.IsNullOrWhiteSpace(selectedWidgetId) ||
-            !WidgetLabelsById.TryGetValue(selectedWidgetId, out var selectedLabel))
-        {
-            ImGui.Spacing();
-            DrawFontSelector(visuals, categoryId);
-            return;
+            this.selectedWidgetId = WidgetEditorOrder[0];
         }
 
         ImGui.Spacing();
-        ImGui.TextUnformatted($"Editing: {selectedLabel}");
-        ImGui.SameLine();
-        if (ImGui.SmallButton("Clear Selection"))
-        {
-            this.selectedWidgetId = null;
-            return;
-        }
+        var leftWidth = 220f;
+        var rightWidth = Math.Max(240f, ImGui.GetContentRegionAvail().X - leftWidth - 8f);
 
-        DrawWidgetControls(visuals, categoryId, selectedWidgetId, selectedLabel);
+        ImGui.BeginChild("##nameplate_widget_selector", new Vector2(leftWidth, 320f), true);
+        ImGui.TextUnformatted("Plate Elements");
+        ImGui.Spacing();
+        DrawWidgetSelectorList(visuals);
+        ImGui.EndChild();
+
+        ImGui.SameLine();
+
+        ImGui.BeginChild("##nameplate_widget_settings", new Vector2(rightWidth, 320f), true);
+        ImGui.TextUnformatted("Settings");
+        ImGui.Spacing();
+        DrawSelectedWidgetSettings(visuals, categoryId);
+        ImGui.EndChild();
+
         ImGui.Spacing();
         DrawFontSelector(visuals, categoryId);
+    }
+
+    private void DrawWidgetSelectorList(CategoryVisualSettings visuals)
+    {
+        for (var i = 0; i < WidgetEditorOrder.Length; i++)
+        {
+            var widgetId = WidgetEditorOrder[i];
+            if (!WidgetLabelsById.TryGetValue(widgetId, out var label))
+            {
+                continue;
+            }
+
+            var isSelected = string.Equals(this.selectedWidgetId, widgetId, StringComparison.Ordinal);
+            if (ImGui.Selectable(label, isSelected))
+            {
+                this.selectedWidgetId = widgetId;
+            }
+
+            if (ImGui.IsItemHovered())
+            {
+                var enabled = visuals.IsWidgetEnabled(widgetId);
+                ImGui.SetTooltip(enabled ? "Enabled" : "Disabled");
+            }
+        }
+    }
+
+    private void DrawSelectedWidgetSettings(CategoryVisualSettings visuals, string categoryId)
+    {
+        if (string.IsNullOrWhiteSpace(this.selectedWidgetId))
+        {
+            ImGui.TextColored(0xFF9AA1AB, "Select a plate element to edit its settings.");
+            return;
+        }
+
+        var selectedWidgetId = string.Equals(this.selectedWidgetId, "target_indicator", StringComparison.Ordinal)
+            ? "health_bar"
+            : this.selectedWidgetId;
+        var editorWidgetId = selectedWidgetId;
+
+        if (!WidgetLabelsById.TryGetValue(selectedWidgetId, out var selectedLabel))
+        {
+            ImGui.TextColored(0xFF9AA1AB, "Select a plate element to edit its settings.");
+            return;
+        }
+
+        var header = $"Editing: {selectedLabel}";
+        ImGui.TextUnformatted(header);
+        DrawWidgetControls(visuals, categoryId, editorWidgetId, selectedLabel);
     }
 
     private void DrawWidgetControls(CategoryVisualSettings visuals, string categoryId, string widgetId, string label)
@@ -595,6 +671,13 @@ public sealed class LayoutEditorWindow
         var size = rule.Size;
         if (string.Equals(widgetId, "health_bar", StringComparison.Ordinal))
         {
+            DrawHealthBarColorControls(categoryId, visuals);
+            var hpRoundness = visuals.HealthBarCornerRoundness;
+            if (ImGui.SliderFloat($"Corner Roundness##{categoryId}_{widgetId}_corner_roundness", ref hpRoundness, 0f, 1f, "%.2f"))
+            {
+                visuals.HealthBarCornerRoundness = Math.Clamp(hpRoundness, 0f, 1f);
+                this.onConfigChanged();
+            }
             DrawTargetIndicatorStyleControls(categoryId, visuals);
             ImGui.Spacing();
             if (ImGui.DragFloat2($"Size (W/H)##{categoryId}_{widgetId}_size", ref size, 0.5f, 0f, 600f, "%.1f"))
@@ -618,6 +701,97 @@ public sealed class LayoutEditorWindow
                 () => visuals.NameTextAlignment,
                 value => visuals.NameTextAlignment = value);
         }
+        else if (string.Equals(widgetId, "title_text", StringComparison.Ordinal))
+        {
+            var fontSize = visuals.TitleTextFontSize;
+            if (ImGui.DragFloat($"Font Size##{categoryId}_{widgetId}_font_size", ref fontSize, 0.25f, 8f, 64f, "%.1f"))
+            {
+                visuals.TitleTextFontSize = Math.Clamp(fontSize, 8f, 64f);
+                this.onConfigChanged();
+            }
+
+            DrawTextAlignmentControls(
+                categoryId,
+                "title_text",
+                () => visuals.TitleTextAlignment,
+                value => visuals.TitleTextAlignment = value);
+
+            var useGlobalFont = visuals.TitleTextUseGlobalFont ?? visuals.TitleTextFontFamilyId == 0;
+            if (ImGui.Checkbox($"Use Global Default Font##{categoryId}_{widgetId}_use_global_font", ref useGlobalFont))
+            {
+                visuals.TitleTextUseGlobalFont = useGlobalFont;
+                this.onConfigChanged();
+            }
+
+            var (ids, labels) = GameFontRegistry.GetFontOptions();
+            var normalized = GameFontRegistry.NormalizeFamilyId(visuals.TitleTextFontFamilyId);
+            var current = Array.IndexOf(ids, normalized);
+            if (current < 0)
+            {
+                current = 0;
+            }
+
+            if (useGlobalFont)
+            {
+                var resolvedGlobal = GameFontRegistry.NormalizeFamilyId(this.config.DefaultFontFamilyId);
+                var globalIndex = Array.IndexOf(ids, resolvedGlobal);
+                if (globalIndex < 0)
+                {
+                    globalIndex = 0;
+                }
+
+                ImGui.TextColored(0xFF9AA1AB, $"Using Global Font: {labels[globalIndex]}");
+            }
+            else
+            {
+                if (ImGui.Combo($"Font##{categoryId}_{widgetId}_font", ref current, labels, labels.Length))
+                {
+                    var selectedId = current >= 0 && current < ids.Length ? ids[current] : 0;
+                    visuals.TitleTextFontFamilyId = GameFontRegistry.NormalizeFamilyId(selectedId);
+                    this.onConfigChanged();
+                }
+            }
+        }
+        else if (string.Equals(widgetId, "job_icon", StringComparison.Ordinal))
+        {
+            const float jobIconBaseSize = 20f;
+            var currentScale = Math.Clamp(rule.Size.Y > 0.001f ? rule.Size.Y / jobIconBaseSize : 1f, 0.25f, 8f);
+            if (ImGui.DragFloat($"Scale##{categoryId}_{widgetId}_scale", ref currentScale, 0.01f, 0.25f, 8f, "%.2f"))
+            {
+                var clamped = Math.Clamp(currentScale, 0.25f, 8f);
+                var iconSize = jobIconBaseSize * clamped;
+                rule.Size = new Vector2(iconSize, iconSize);
+                this.onConfigChanged();
+            }
+
+            var edgeOptions = new[] { "Left of Name Text", "Right of Name Text" };
+            var edgeIndex = visuals.JobIconNameTextEdge == NameplateTextEdge.Right ? 1 : 0;
+            if (ImGui.Combo($"Anchor to Name Text Edge##{categoryId}_{widgetId}_edge", ref edgeIndex, edgeOptions, edgeOptions.Length))
+            {
+                visuals.JobIconNameTextEdge = edgeIndex == 1 ? NameplateTextEdge.Right : NameplateTextEdge.Left;
+                this.onConfigChanged();
+            }
+
+            var iconTypeOptions = new[] { "Type 1", "Type 2" };
+            var iconTypeIndex = visuals.JobIconType == NameplateJobIconType.Type2 ? 1 : 0;
+            if (ImGui.Combo($"Job Icon Type##{categoryId}_{widgetId}_icon_type", ref iconTypeIndex, iconTypeOptions, iconTypeOptions.Length))
+            {
+                visuals.JobIconType = iconTypeIndex == 1 ? NameplateJobIconType.Type2 : NameplateJobIconType.Type1;
+                this.onConfigChanged();
+            }
+
+            var gap = visuals.JobIconNameTextGap;
+            if (ImGui.DragFloat($"Name Text Gap##{categoryId}_{widgetId}_name_gap", ref gap, 0.5f, -128f, 128f, "%.1f"))
+            {
+                visuals.JobIconNameTextGap = Math.Clamp(gap, -128f, 128f);
+                this.onConfigChanged();
+            }
+
+            if (ImGui.IsItemHovered())
+            {
+                ImGui.SetTooltip("Scales the job icon uniformly.");
+            }
+        }
         else if (string.Equals(widgetId, "cast_bar_text", StringComparison.Ordinal))
         {
             var fontSize = visuals.CastBarTextFontSize;
@@ -633,9 +807,26 @@ public sealed class LayoutEditorWindow
                 () => visuals.CastBarTextAlignment,
                 value => visuals.CastBarTextAlignment = value);
         }
+        else if (string.Equals(widgetId, "cast_bar", StringComparison.Ordinal))
+        {
+            DrawCastBarColorControls(categoryId, visuals);
+            var castRoundness = visuals.CastBarCornerRoundness;
+            if (ImGui.SliderFloat($"Corner Roundness##{categoryId}_{widgetId}_corner_roundness", ref castRoundness, 0f, 1f, "%.2f"))
+            {
+                visuals.CastBarCornerRoundness = Math.Clamp(castRoundness, 0f, 1f);
+                this.onConfigChanged();
+            }
+            ImGui.Spacing();
+            if (ImGui.DragFloat2($"Size (W/H)##{categoryId}_{widgetId}_size", ref size, 0.5f, 0f, 600f, "%.1f"))
+            {
+                rule.Size = new Vector2(Math.Max(0f, size.X), Math.Max(0f, size.Y));
+                this.onConfigChanged();
+            }
+        }
         else if (string.Equals(widgetId, "buff_row", StringComparison.Ordinal) ||
                  string.Equals(widgetId, "debuff_row", StringComparison.Ordinal))
         {
+            DrawRowCenterWithHealthBarToggle(categoryId, visuals, widgetId);
             var baseWidth = StatusLaneLayout.GetIconWidth(20f) * 8f + (2f * 7f);
             const float baseHeight = 20f;
             var currentScale = string.Equals(widgetId, "buff_row", StringComparison.Ordinal)
@@ -671,6 +862,103 @@ public sealed class LayoutEditorWindow
         }
 
         ImGui.Unindent();
+    }
+
+    private void DrawRowCenterWithHealthBarToggle(string categoryId, CategoryVisualSettings visuals, string widgetId)
+    {
+        var isBuff = string.Equals(widgetId, "buff_row", StringComparison.Ordinal);
+        var centered = isBuff ? visuals.BuffRowCenterWithHealthBar : visuals.DebuffRowCenterWithHealthBar;
+        if (ImGui.Checkbox($"Center with HP Bar##{categoryId}_{widgetId}_center_with_health", ref centered))
+        {
+            if (isBuff)
+            {
+                visuals.BuffRowCenterWithHealthBar = centered;
+            }
+            else
+            {
+                visuals.DebuffRowCenterWithHealthBar = centered;
+            }
+
+            this.onConfigChanged();
+        }
+    }
+
+    private void DrawHealthBarColorControls(string categoryId, CategoryVisualSettings visuals)
+    {
+        var useCustom = visuals.UseCustomHealthBarColors;
+        if (ImGui.Checkbox($"Use Custom HP Bar Colors##{categoryId}_health_custom_colors", ref useCustom))
+        {
+            visuals.UseCustomHealthBarColors = useCustom;
+            this.onConfigChanged();
+        }
+
+        if (!useCustom)
+        {
+            return;
+        }
+
+        ImGui.Indent();
+        DrawColorEdit(
+            $"HP Fill Color##{categoryId}_health_fill_color",
+            visuals.HealthBarFillColor,
+            value => visuals.HealthBarFillColor = value);
+        DrawColorEdit(
+            $"HP Background Color##{categoryId}_health_bg_color",
+            visuals.HealthBarBackgroundColor,
+            value => visuals.HealthBarBackgroundColor = value);
+        DrawColorEdit(
+            $"HP Border Color##{categoryId}_health_border_color",
+            visuals.HealthBarBorderColor,
+            value => visuals.HealthBarBorderColor = value);
+        ImGui.Unindent();
+    }
+
+    private void DrawCastBarColorControls(string categoryId, CategoryVisualSettings visuals)
+    {
+        var useCustom = visuals.UseCustomCastBarColors;
+        if (ImGui.Checkbox($"Use Custom Cast Bar Colors##{categoryId}_cast_custom_colors", ref useCustom))
+        {
+            visuals.UseCustomCastBarColors = useCustom;
+            this.onConfigChanged();
+        }
+
+        if (!useCustom)
+        {
+            return;
+        }
+
+        ImGui.Indent();
+        DrawColorEdit(
+            $"Cast Fill Color##{categoryId}_cast_fill_color",
+            visuals.CastBarFillColor,
+            value => visuals.CastBarFillColor = value);
+        DrawColorEdit(
+            $"Cast Background Color##{categoryId}_cast_bg_color",
+            visuals.CastBarBackgroundColor,
+            value => visuals.CastBarBackgroundColor = value);
+        DrawColorEdit(
+            $"Cast Border Color##{categoryId}_cast_border_color",
+            visuals.CastBarBorderColor,
+            value => visuals.CastBarBorderColor = value);
+        DrawColorEdit(
+            $"Interruptible Border Color##{categoryId}_cast_interruptible_color",
+            visuals.CastBarInterruptibleColor,
+            value => visuals.CastBarInterruptibleColor = value);
+        DrawColorEdit(
+            $"Not Interruptible Border Color##{categoryId}_cast_not_interruptible_color",
+            visuals.CastBarNotInterruptibleColor,
+            value => visuals.CastBarNotInterruptibleColor = value);
+        ImGui.Unindent();
+    }
+
+    private void DrawColorEdit(string label, uint color, Action<uint> setColor)
+    {
+        var value = FFXIVHudPlugin.HudColorConversion.ToVector4(color);
+        if (ImGui.ColorEdit4(label, ref value, ImGuiColorEditFlags.AlphaBar))
+        {
+            setColor(FFXIVHudPlugin.HudColorConversion.ToImGuiColor(value));
+            this.onConfigChanged();
+        }
     }
 
     private void DrawTextAlignmentControls(
@@ -745,6 +1033,13 @@ public sealed class LayoutEditorWindow
         if (ImGui.DragFloat($"Indicator Scale##{categoryId}_health_target_indicator_scale", ref indicatorScale, 0.01f, 0.25f, 8f, "%.2f"))
         {
             targetCfg.Scale = Math.Clamp(indicatorScale, 0.25f, 8f);
+            this.onConfigChanged();
+        }
+
+        var centerWithHealth = visuals.TargetIndicatorCenterWithHealthBar;
+        if (ImGui.Checkbox($"Center with HP Bar##{categoryId}_health_target_indicator_center_with_health", ref centerWithHealth))
+        {
+            visuals.TargetIndicatorCenterWithHealthBar = centerWithHealth;
             this.onConfigChanged();
         }
 
@@ -943,6 +1238,11 @@ public sealed class LayoutEditorWindow
         var clone = new CategoryVisualSettings
         {
             HealthBarEnabled = source.HealthBarEnabled,
+            HealthBarCornerRoundness = source.HealthBarCornerRoundness,
+            UseCustomHealthBarColors = source.UseCustomHealthBarColors,
+            HealthBarFillColor = source.HealthBarFillColor,
+            HealthBarBackgroundColor = source.HealthBarBackgroundColor,
+            HealthBarBorderColor = source.HealthBarBorderColor,
             BossShowHpValueText = source.BossShowHpValueText,
             BossShowHpPercentText = source.BossShowHpPercentText,
             BossHpValueTextFontSize = source.BossHpValueTextFontSize,
@@ -956,14 +1256,33 @@ public sealed class LayoutEditorWindow
             NameTextEnabled = source.NameTextEnabled,
             NameTextFontSize = source.NameTextFontSize,
             NameTextAlignment = source.NameTextAlignment,
+            TitleTextEnabled = source.TitleTextEnabled,
+            TitleTextFontSize = source.TitleTextFontSize,
+            TitleTextAlignment = source.TitleTextAlignment,
+            TitleTextUseGlobalFont = source.TitleTextUseGlobalFont,
+            TitleTextFontFamilyId = source.TitleTextFontFamilyId,
+            JobIconEnabled = source.JobIconEnabled,
+            JobIconNameTextEdge = source.JobIconNameTextEdge,
+            JobIconNameTextGap = source.JobIconNameTextGap,
+            JobIconType = source.JobIconType,
             TargetIndicatorEnabled = source.TargetIndicatorEnabled,
+            TargetIndicatorCenterWithHealthBar = source.TargetIndicatorCenterWithHealthBar,
             CastBarEnabled = source.CastBarEnabled,
+            CastBarCornerRoundness = source.CastBarCornerRoundness,
+            UseCustomCastBarColors = source.UseCustomCastBarColors,
+            CastBarFillColor = source.CastBarFillColor,
+            CastBarBackgroundColor = source.CastBarBackgroundColor,
+            CastBarBorderColor = source.CastBarBorderColor,
+            CastBarInterruptibleColor = source.CastBarInterruptibleColor,
+            CastBarNotInterruptibleColor = source.CastBarNotInterruptibleColor,
             CastBarTextEnabled = source.CastBarTextEnabled,
             CastBarTextFontSize = source.CastBarTextFontSize,
             CastBarTextAlignment = source.CastBarTextAlignment,
             BuffRowEnabled = source.BuffRowEnabled,
+            BuffRowCenterWithHealthBar = source.BuffRowCenterWithHealthBar,
             BuffRowScale = source.BuffRowScale,
             DebuffRowEnabled = source.DebuffRowEnabled,
+            DebuffRowCenterWithHealthBar = source.DebuffRowCenterWithHealthBar,
             DebuffRowScale = source.DebuffRowScale,
             UseGlobalFont = source.UseGlobalFont,
             FontFamilyId = source.FontFamilyId,
@@ -989,6 +1308,11 @@ public sealed class LayoutEditorWindow
     private static void ApplyVisualSettings(CategoryVisualSettings destination, CategoryVisualSettings source)
     {
         destination.HealthBarEnabled = source.HealthBarEnabled;
+        destination.HealthBarCornerRoundness = source.HealthBarCornerRoundness;
+        destination.UseCustomHealthBarColors = source.UseCustomHealthBarColors;
+        destination.HealthBarFillColor = source.HealthBarFillColor;
+        destination.HealthBarBackgroundColor = source.HealthBarBackgroundColor;
+        destination.HealthBarBorderColor = source.HealthBarBorderColor;
         destination.BossShowHpValueText = source.BossShowHpValueText;
         destination.BossShowHpPercentText = source.BossShowHpPercentText;
         destination.BossHpValueTextFontSize = source.BossHpValueTextFontSize;
@@ -1002,14 +1326,33 @@ public sealed class LayoutEditorWindow
         destination.NameTextEnabled = source.NameTextEnabled;
         destination.NameTextFontSize = source.NameTextFontSize;
         destination.NameTextAlignment = source.NameTextAlignment;
+        destination.TitleTextEnabled = source.TitleTextEnabled;
+        destination.TitleTextFontSize = source.TitleTextFontSize;
+        destination.TitleTextAlignment = source.TitleTextAlignment;
+        destination.TitleTextUseGlobalFont = source.TitleTextUseGlobalFont;
+        destination.TitleTextFontFamilyId = source.TitleTextFontFamilyId;
+        destination.JobIconEnabled = source.JobIconEnabled;
+        destination.JobIconNameTextEdge = source.JobIconNameTextEdge;
+        destination.JobIconNameTextGap = source.JobIconNameTextGap;
+        destination.JobIconType = source.JobIconType;
         destination.TargetIndicatorEnabled = source.TargetIndicatorEnabled;
+        destination.TargetIndicatorCenterWithHealthBar = source.TargetIndicatorCenterWithHealthBar;
         destination.CastBarEnabled = source.CastBarEnabled;
+        destination.CastBarCornerRoundness = source.CastBarCornerRoundness;
+        destination.UseCustomCastBarColors = source.UseCustomCastBarColors;
+        destination.CastBarFillColor = source.CastBarFillColor;
+        destination.CastBarBackgroundColor = source.CastBarBackgroundColor;
+        destination.CastBarBorderColor = source.CastBarBorderColor;
+        destination.CastBarInterruptibleColor = source.CastBarInterruptibleColor;
+        destination.CastBarNotInterruptibleColor = source.CastBarNotInterruptibleColor;
         destination.CastBarTextEnabled = source.CastBarTextEnabled;
         destination.CastBarTextFontSize = source.CastBarTextFontSize;
         destination.CastBarTextAlignment = source.CastBarTextAlignment;
         destination.BuffRowEnabled = source.BuffRowEnabled;
+        destination.BuffRowCenterWithHealthBar = source.BuffRowCenterWithHealthBar;
         destination.BuffRowScale = source.BuffRowScale;
         destination.DebuffRowEnabled = source.DebuffRowEnabled;
+        destination.DebuffRowCenterWithHealthBar = source.DebuffRowCenterWithHealthBar;
         destination.DebuffRowScale = source.DebuffRowScale;
         destination.UseGlobalFont = source.UseGlobalFont;
         destination.FontFamilyId = source.FontFamilyId;

@@ -28,6 +28,7 @@ public sealed record TrackedObject(
     bool Targetable,
     float Distance,
     uint JobId,
+    uint JobIconId,
     int Level,
     bool IsTarget,
     bool IsFocusTarget,
@@ -41,6 +42,7 @@ public sealed record TrackedObject(
     byte SubKind,
     uint NameplateIconId,
     bool IsPlayerCharacter,
+    string Title,
     IReadOnlyList<StatusSnapshot> Statuses,
     CastSnapshot CastInfo);
 
