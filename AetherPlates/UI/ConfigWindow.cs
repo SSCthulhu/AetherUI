@@ -313,21 +313,21 @@ public sealed class ConfigWindow
         {
             case GroupTab.Own:
                 DrawCategorySection(
-                    "Own (Self)",
+                    "Own",
                     "own_self",
                     NameplateManager.NameplateCategory.Self,
                     () => v.Self,
                     value => v.Self = value,
                     this.config.SelfVisual);
                 DrawCategorySection(
-                    "Companions (Own)",
+                    "Companions",
                     "own_companion",
                     NameplateManager.NameplateCategory.SelfCompanion,
                     () => v.SelfCompanion,
                     value => v.SelfCompanion = value,
                     this.config.SelfCompanionVisual);
                 DrawCategorySection(
-                    "Pets (Own)",
+                    "Pets",
                     "own_pet",
                     NameplateManager.NameplateCategory.SelfPet,
                     () => v.SelfPet,
@@ -361,17 +361,6 @@ public sealed class ConfigWindow
                 DrawCategorySection("Housing Furniture", "housing_furniture", NameplateManager.NameplateCategory.HousingFurniture, () => v.HousingFurniture, value => v.HousingFurniture = value, this.config.HousingFurnitureVisual);
                 DrawCategorySection("Housing Gardens", "housing_field", NameplateManager.NameplateCategory.HousingField, () => v.HousingField, value => v.HousingField = value, this.config.HousingFieldVisual);
                 break;
-        }
-    }
-
-    private void DrawCategoryToggle(string label, bool value, Action<bool> onSet)
-    {
-        var localValue = value;
-        var changed = ImGui.Checkbox(label, ref localValue);
-        if (changed)
-        {
-            onSet(localValue);
-            this.onConfigChanged();
         }
     }
 
@@ -427,11 +416,27 @@ public sealed class ConfigWindow
         }
 
         var buttonLabel = isEditing
-            ? $"{title} {(enabled ? "(Enabled)" : "(Disabled)")}  [Editing]"
-            : $"{title} {(enabled ? "(Enabled)" : "(Disabled)")}";
+            ? $"{title} [Editing]"
+            : title;
         var availWidth = ImGui.GetContentRegionAvail().X;
+        var toggleWidth = 28f;
         var badgeWidth = 115f;
-        var buttonWidth = Math.Max(180f, availWidth - badgeWidth - 8f);
+        var buttonWidth = Math.Max(180f, availWidth - badgeWidth - toggleWidth - 16f);
+        ImGui.AlignTextToFramePadding();
+        var categoryEnabled = enabled;
+        if (ImGui.Checkbox($"##category_enabled_{categoryId}", ref categoryEnabled))
+        {
+            setCategoryEnabled(categoryEnabled);
+            this.onConfigChanged();
+            enabled = categoryEnabled;
+        }
+
+        if (ImGui.IsItemHovered())
+        {
+            ImGui.SetTooltip("Enable or disable this nameplate category.");
+        }
+
+        ImGui.SameLine();
         if (ImGui.Button(buttonLabel, new Vector2(buttonWidth, 28f)))
         {
             this.layoutEditorWindow.Open(new LayoutEditorWindow.CategoryEditorTarget(
