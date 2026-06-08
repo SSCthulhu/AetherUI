@@ -9,6 +9,7 @@ public sealed class ConfigWindow
     private const float NavSidebarWidth = 268f;
     private const float NavButtonHeight = 30f;
     private const float PresetButtonHeight = 36f;
+    private const bool ShowDeveloperMinimapAdvancedSection = false;
 
     private readonly HudConfiguration config;
     private readonly AetherPlates.UI.ConfigWindow aetherPlatesConfigWindow;
@@ -274,7 +275,7 @@ public sealed class ConfigWindow
         }
 
         var softTarget = actionConfig.EnableSoftTargetSuggestion;
-        if (DrawSettingCheckbox("Enable Soft Target Suggestion (Scaffold)", ref softTarget))
+        if (DrawSettingCheckbox("Enable Soft Targeting", ref softTarget))
         {
             actionConfig.EnableSoftTargetSuggestion = softTarget;
             this.NotifyActionCameraConfigChanged();
@@ -294,13 +295,6 @@ public sealed class ConfigWindow
             this.NotifyActionCameraConfigChanged();
         }
 
-        var showDebug = actionConfig.ShowDebugOverlay;
-        if (DrawSettingCheckbox("Show Action Camera Debug Overlay", ref showDebug))
-        {
-            actionConfig.ShowDebugOverlay = showDebug;
-            this.NotifyActionCameraConfigChanged();
-        }
-
         ImGui.Spacing();
         ImGui.Separator();
         ImGui.Spacing();
@@ -317,6 +311,19 @@ public sealed class ConfigWindow
         if (DrawPreciseFloat("Vertical Sensitivity", ref vertical, 0.1f, 5.0f, "%.2f", 0.05f))
         {
             actionConfig.VerticalSensitivity = vertical;
+            this.NotifyActionCameraConfigChanged();
+        }
+
+        ImGui.Spacing();
+        ImGui.Separator();
+        ImGui.Spacing();
+        ImGui.TextUnformatted("Advanced");
+        ImGui.TextColored(0xFF9AA1AB, "Enable only when troubleshooting camera behavior.");
+
+        var showDebug = actionConfig.ShowDebugOverlay;
+        if (DrawSettingCheckbox("Show Debug Overlay", ref showDebug))
+        {
+            actionConfig.ShowDebugOverlay = showDebug;
             this.NotifyActionCameraConfigChanged();
         }
     }
@@ -386,23 +393,16 @@ public sealed class ConfigWindow
         ImGui.Spacing();
 
         var enabled = this.config.Enabled;
-        if (DrawSettingCheckbox("Enabled", ref enabled))
+        if (DrawSettingCheckbox("Enable HUD Reimagined", ref enabled))
         {
             this.config.Enabled = enabled;
             this.config.Save();
         }
 
         var statusTooltips = this.config.EnableStatusTooltips;
-        if (DrawSettingCheckbox("Enable Tooltips", ref statusTooltips))
+        if (DrawSettingCheckbox("Enable Hotbar Tooltips", ref statusTooltips))
         {
             this.config.EnableStatusTooltips = statusTooltips;
-            this.config.Save();
-        }
-
-        var showSlidecast = this.config.ShowSlidecastMarker;
-        if (DrawSettingCheckbox("Show Slidecast Marker", ref showSlidecast))
-        {
-            this.config.ShowSlidecastMarker = showSlidecast;
             this.config.Save();
         }
 
@@ -656,6 +656,13 @@ public sealed class ConfigWindow
         ImGui.Spacing();
         ImGui.TextUnformatted("Castbar Settings");
         ImGui.Spacing();
+
+        var showSlidecast = this.config.ShowSlidecastMarker;
+        if (DrawSettingCheckbox("Show Slidecast Marker", ref showSlidecast))
+        {
+            this.config.ShowSlidecastMarker = showSlidecast;
+            this.config.Save();
+        }
 
         var slidecastOffset = this.config.SlidecastOffsetSeconds;
         if (DrawPreciseFloat("Slidecast Offset (seconds)", ref slidecastOffset, 0.05f, 1.20f, "%.2f", 0.05f))
@@ -1007,15 +1014,21 @@ public sealed class ConfigWindow
             this.config.Save();
         }
 
-        ImGui.Spacing();
-        ImGui.Separator();
-        ImGui.Spacing();
-        this.DrawMinimapTroubleshootingSection();
+        if (ShowDeveloperMinimapAdvancedSection)
+        {
+            ImGui.Spacing();
+            ImGui.Separator();
+            ImGui.Spacing();
+            this.DrawMinimapAdvancedSection();
+        }
     }
 
-    private void DrawMinimapTroubleshootingSection()
+    private void DrawMinimapAdvancedSection()
     {
-        ImGui.TextUnformatted("Troubleshooting");
+        ImGui.TextUnformatted("Advanced");
+        ImGui.TextColored(
+            0xFF9AA1AB,
+            "Diagnostics are intended for troubleshooting marker/map issues and are disabled for normal play.");
         var assembly = typeof(Plugin).Assembly;
         var buildVersion = assembly.GetName().Version;
         ImGui.TextColored(
@@ -1037,7 +1050,7 @@ public sealed class ConfigWindow
         ImGui.TextColored(0xFF9AA1AB, $"Loaded assembly write time (local): {loadedWriteTime}");
 
         var showDiagnostics = this.config.MinimapShowDiagnostics;
-        if (DrawSettingCheckbox("Enable minimap diagnostics", ref showDiagnostics))
+        if (DrawSettingCheckbox("Enable Diagnostics", ref showDiagnostics))
         {
             this.config.MinimapShowDiagnostics = showDiagnostics;
             this.config.Save();
