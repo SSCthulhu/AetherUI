@@ -7,7 +7,7 @@
     "Description": "A standalone customizable HUD with nameplate parity, action camera controls, and backend/profile stability improvements.",
     "Punchline": "Standalone customizable HUD with action camera parity.",
     "ApplicableVersion": "any",
-    "RepoUrl": "https://github.com/SSCthulhu/FFXIVHudReimagined",
+    "RepoUrl": "https://github.com/SSCthulhu/AetherUI",
     "DalamudApiLevel": 15,
     "Tags": [
       "hud",
@@ -17,8 +17,8 @@
       "nameplates"
     ],
     "IconUrl": "https://github.com/SSCthulhu.png",
-    "Changelog": "https://github.com/SSCthulhu/FFXIVHudReimagined/releases/latest",
-    "DownloadLinkInstall": "https://github.com/SSCthulhu/FFXIVHudReimagined/releases/latest/download/AetherUI.zip",
-    "DownloadLinkUpdate": "https://github.com/SSCthulhu/FFXIVHudReimagined/releases/latest/download/AetherUI.zip"
+    "Changelog": "https://github.com/SSCthulhu/AetherUI/releases/latest",
+    "DownloadLinkInstall": "https://github.com/SSCthulhu/AetherUI/releases/latest/download/AetherUI.zip",
+    "DownloadLinkUpdate": "https://github.com/SSCthulhu/AetherUI/releases/latest/download/AetherUI.zip"
   }
 ]

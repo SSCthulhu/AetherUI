@@ -5,9 +5,10 @@ Use this checklist every time you publish an update for testers via Dalamud Cust
 ## One-time setup (already done)
 
 - `pluginmaster.json` exists at repo root and points to `AetherUI.zip`.
+- `LICENSE` exists at repo root with AGPL-3.0 text.
 - GitHub Actions workflow exists at `.github/workflows/release.yml`.
 - Testers use:
-  - `https://raw.githubusercontent.com/SSCthulhu/FFXIVHudReimagined/main/pluginmaster.json`
+  - `https://raw.githubusercontent.com/SSCthulhu/AetherUI/main/pluginmaster.json`
 
 ## Per-release checklist
 

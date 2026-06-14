@@ -5,7 +5,7 @@
   "AssemblyVersion": "2.7.0.1",
   "Description": "Aether UI is focused on stable backend behavior and safe profile handling.",
   "ApplicableVersion": "any",
-  "RepoUrl": "https://github.com/SSCthulhu/FFXIVHudReimagined",
+  "RepoUrl": "https://github.com/SSCthulhu/AetherUI",
   "Tags": [
     "UI",
     "Nameplates"

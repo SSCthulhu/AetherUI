@@ -24,7 +24,7 @@ Open the plugin config from the Dalamud plugin installer or use the in-game comm
 For testers, install directly from Dalamud's Custom Plugin Repositories without cloning or building.
 
 - Add this URL in `/xlsettings` -> `Experimental` -> `Custom Plugin Repositories`:
-  - `https://raw.githubusercontent.com/SSCthulhu/FFXIVHudReimagined/main/pluginmaster.json`
+  - `https://raw.githubusercontent.com/SSCthulhu/AetherUI/main/pluginmaster.json`
 - Open Dalamud plugin installer, refresh plugin lists, and install `Aether UI`.
 
 ### Publishing updates for testers
@@ -74,4 +74,7 @@ See git commits and tags. Keep pluginmaster `AssemblyVersion` aligned with the r
 
 ## License
 
-Add a license file when you choose one for this repository.
+This project is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0-or-later).
+
+This repository is a forked derivative of DelvUI and must remain AGPL-compliant when distributed.
+The full license text is provided in `LICENSE`.

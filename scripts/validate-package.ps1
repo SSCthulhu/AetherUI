@@ -15,9 +15,11 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $pluginmasterPath = Join-Path $repoRoot "pluginmaster.json"
 $aetherManifestPath = Join-Path $repoRoot "AetherUI.json"
 $releaseZipPath = Join-Path $repoRoot "AetherUI.zip"
+$licensePath = Join-Path $repoRoot "LICENSE"
 
 if (!(Test-Path $pluginmasterPath)) { Fail "Missing pluginmaster.json: $pluginmasterPath" }
 if (!(Test-Path $aetherManifestPath)) { Fail "Missing AetherUI.json: $aetherManifestPath" }
+if (!(Test-Path $licensePath)) { Fail "Missing LICENSE: $licensePath" }
 
 $aetherManifest = Get-Content $aetherManifestPath | ConvertFrom-Json
 $pluginmaster = Get-Content $pluginmasterPath | ConvertFrom-Json
@@ -28,8 +30,8 @@ if ($pluginmaster.Count -lt 1) {
 
 $masterEntry = $pluginmaster[0]
 $expectedInternalName = "AetherUI"
-$expectedRepoUrl = "https://github.com/SSCthulhu/FFXIVHudReimagined"
-$expectedReleaseZipUrl = "https://github.com/SSCthulhu/FFXIVHudReimagined/releases/latest/download/AetherUI.zip"
+$expectedRepoUrl = "https://github.com/SSCthulhu/AetherUI"
+$expectedReleaseZipUrl = "https://github.com/SSCthulhu/AetherUI/releases/latest/download/AetherUI.zip"
 
 Assert-Equal "AetherUI.json InternalName" $aetherManifest.InternalName $expectedInternalName
 Assert-Equal "pluginmaster InternalName" $masterEntry.InternalName $expectedInternalName
