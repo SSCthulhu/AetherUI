@@ -1,10 +1,10 @@
-# Publish Checklist
+# Publish Checklist (Aether UI)
 
-Use this checklist every time you publish an update for testers via Dalamud Experimental Repos.
+Use this checklist every time you publish an update for testers via Dalamud Custom Plugin Repositories.
 
 ## One-time setup (already done)
 
-- `pluginmaster.json` exists at repo root.
+- `pluginmaster.json` exists at repo root and points to `AetherUI.zip`.
 - GitHub Actions workflow exists at `.github/workflows/release.yml`.
 - Testers use:
   - `https://raw.githubusercontent.com/SSCthulhu/FFXIVHudReimagined/main/pluginmaster.json`
@@ -12,73 +12,70 @@ Use this checklist every time you publish an update for testers via Dalamud Expe
 ## Per-release checklist
 
 1. **Pick the next version number**
-   - Example: `0.0.66`
-   - Tag format must match: `v0.0.66`
+   - Example: `2.7.0.2`
+   - Tag format example: `v2.7.0.2-aether.0`
 
-2. **Update version fields**
-   - In `FFXIVHudPlugin.csproj`, set:
-     - `<Version>0.0.66</Version>`
+2. **Build the source plugin release package**
+   - Build from the Aether UI source repository.
+   - Ensure the release package is named `AetherUI.zip`.
+
+3. **Update distribution metadata**
    - In `pluginmaster.json`, set:
-     - `"AssemblyVersion": "0.0.66.0"`
+     - `"AssemblyVersion"` to the released Aether UI version.
+   - Confirm install/update links point to:
+     - `.../releases/latest/download/AetherUI.zip`
 
-3. **Commit and push `main`**
-   - `git add "FFXIVHudPlugin.csproj" "pluginmaster.json"`
-   - `git commit -m "Bump plugin version to 0.0.66 for release."`
+4. **Commit and push `main`**
+   - `git add "pluginmaster.json" "README.md" ".github/workflows/release.yml" "AetherUI.zip"`
+   - `git commit -m "Publish Aether UI <version> release artifacts."`
    - `git push origin main`
 
-4. **Create and push release tag**
-   - `git tag v0.0.66`
-   - `git push origin v0.0.66`
+5. **Create and push release tag**
+   - `git tag v2.7.0.2-aether.0`
+   - `git push origin v2.7.0.2-aether.0`
 
-5. **Wait for GitHub Actions**
+6. **Wait for GitHub Actions**
    - Open GitHub -> `Actions` -> `Build and Release Plugin`
    - Confirm latest run is green
 
-6. **Verify release asset**
-   - Open GitHub -> `Releases` -> `v0.0.66`
+7. **Verify release asset**
+   - Open GitHub -> `Releases` -> latest tag
    - Confirm asset exists:
-     - `FFXIVHudPlugin.zip`
-   - Run package validation before publishing:
+     - `AetherUI.zip`
+   - Run package validation before tagging:
      - `pwsh -ExecutionPolicy Bypass -File .\scripts\validate-package.ps1`
 
-7. **Smoke test install path**
+8. **Smoke test install path**
    - In-game `/xlsettings` -> `Experimental` -> ensure repo URL is present
-   - Plugin installer can install/update `FFXIV Hud Reimagined`
+   - Plugin installer can install/update `Aether UI`
 
 ## Quick command template
 
-Replace `0.0.66` with your next version.
+Replace `v2.7.0.2-aether.0` with your next tag.
 
 ```powershell
 cd "F:\Game Development\FFXIV Plugins\ffxiv-dalamud-hud"
 pwsh -ExecutionPolicy Bypass -File .\scripts\validate-package.ps1
-git add "FFXIVHudPlugin.csproj" "pluginmaster.json"
-git commit -m "Bump plugin version to 0.0.66 for release."
+git add "pluginmaster.json" "README.md" ".github/workflows/release.yml" "AetherUI.zip"
+git commit -m "Publish Aether UI release."
 git push origin main
-git tag v0.0.66
-git push origin v0.0.66
+git tag v2.7.0.2-aether.0
+git push origin v2.7.0.2-aether.0
 ```
 
 ## If release fails
 
 - Check `Actions` logs for the failed step.
-- Fix on `main`, push, then create a **new** tag (do not reuse failed tag), e.g.:
-  - `v0.0.66.1`
+- Fix on `main`, push, then create a **new** tag (do not reuse failed tag).
 
 ## Packaging guardrails
 
-Always ensure the release zip contains all of the following files:
+Always ensure `AetherUI.zip` contains all required runtime files:
 
-- `FFXIVHudPlugin.dll` (legacy assembly still emitted)
-- `FFXIVHudPlugin.json` (legacy manifest still emitted)
-- `FFXIVHudReimagined.dll` (Dalamud loader target)
-- `FFXIVHudReimagined.deps.json` (Dalamud dependency graph for alias)
-- `FFXIVHudReimagined.json` (manifest with `InternalName: FFXIVHudReimagined`)
-
-The validation script checks:
-
-- csproj `<Version>` matches manifest `AssemblyVersion`
-- `FFXIVHudPlugin.json` and `FFXIVHudReimagined.json` stay in sync
-- both manifests keep `InternalName` set to `FFXIVHudReimagined`
-- `pluginmaster.json` continues to point at the same GitHub release zip path
-- required files are present in `bin\Release\FFXIVHudPlugin\latest.zip`
+- `AetherUI.dll`
+- `AetherUI.deps.json`
+- `AetherUI.json`
+- `Colourful.dll`
+- `changelog.md`
+- `LICENSE`
+- `Media\...`

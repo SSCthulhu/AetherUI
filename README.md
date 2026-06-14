@@ -5,7 +5,7 @@ Aether UI is a Dalamud plugin that provides a standalone customizable HUD with n
 ## Requirements
 
 - Final Fantasy XIV with [Dalamud](https://github.com/goatcorp/Dalamud) installed
-- .NET SDK matching the project target (see `FFXIVHudPlugin.csproj`)
+- .NET SDK matching the project target
 
 ## Build
 

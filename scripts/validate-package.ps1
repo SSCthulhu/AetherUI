@@ -12,25 +12,14 @@ function Assert-Equal([string]$Name, $Actual, $Expected) {
 }
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$csprojPath = Join-Path $repoRoot "FFXIVHudPlugin.csproj"
 $pluginmasterPath = Join-Path $repoRoot "pluginmaster.json"
-$pluginManifestPath = Join-Path $repoRoot "FFXIVHudPlugin.json"
-$reimaginedManifestPath = Join-Path $repoRoot "FFXIVHudReimagined.json"
-$releaseZipPath = Join-Path $repoRoot "bin\Release\FFXIVHudPlugin\latest.zip"
+$aetherManifestPath = Join-Path $repoRoot "AetherUI.json"
+$releaseZipPath = Join-Path $repoRoot "AetherUI.zip"
 
-if (!(Test-Path $csprojPath)) { Fail "Missing csproj: $csprojPath" }
 if (!(Test-Path $pluginmasterPath)) { Fail "Missing pluginmaster.json: $pluginmasterPath" }
-if (!(Test-Path $pluginManifestPath)) { Fail "Missing FFXIVHudPlugin.json: $pluginManifestPath" }
-if (!(Test-Path $reimaginedManifestPath)) { Fail "Missing FFXIVHudReimagined.json: $reimaginedManifestPath" }
+if (!(Test-Path $aetherManifestPath)) { Fail "Missing AetherUI.json: $aetherManifestPath" }
 
-[xml]$csprojXml = Get-Content $csprojPath
-$csprojVersion = $csprojXml.Project.PropertyGroup.Version | Select-Object -First 1
-if ([string]::IsNullOrWhiteSpace($csprojVersion)) {
-    Fail "Could not resolve <Version> from FFXIVHudPlugin.csproj."
-}
-
-$pluginManifest = Get-Content $pluginManifestPath | ConvertFrom-Json
-$reimaginedManifest = Get-Content $reimaginedManifestPath | ConvertFrom-Json
+$aetherManifest = Get-Content $aetherManifestPath | ConvertFrom-Json
 $pluginmaster = Get-Content $pluginmasterPath | ConvertFrom-Json
 
 if ($pluginmaster.Count -lt 1) {
@@ -38,20 +27,16 @@ if ($pluginmaster.Count -lt 1) {
 }
 
 $masterEntry = $pluginmaster[0]
-$expectedInternalName = "FFXIVHudReimagined"
+$expectedInternalName = "AetherUI"
 $expectedRepoUrl = "https://github.com/SSCthulhu/FFXIVHudReimagined"
-$expectedReleaseZipUrl = "https://github.com/SSCthulhu/FFXIVHudReimagined/releases/latest/download/FFXIVHudPlugin.zip"
+$expectedReleaseZipUrl = "https://github.com/SSCthulhu/FFXIVHudReimagined/releases/latest/download/AetherUI.zip"
 
-Assert-Equal "FFXIVHudPlugin.json InternalName" $pluginManifest.InternalName $expectedInternalName
-Assert-Equal "FFXIVHudReimagined.json InternalName" $reimaginedManifest.InternalName $expectedInternalName
+Assert-Equal "AetherUI.json InternalName" $aetherManifest.InternalName $expectedInternalName
 Assert-Equal "pluginmaster InternalName" $masterEntry.InternalName $expectedInternalName
 
-Assert-Equal "FFXIVHudPlugin.json AssemblyVersion" $pluginManifest.AssemblyVersion $csprojVersion
-Assert-Equal "FFXIVHudReimagined.json AssemblyVersion" $reimaginedManifest.AssemblyVersion $csprojVersion
-Assert-Equal "pluginmaster AssemblyVersion" $masterEntry.AssemblyVersion $csprojVersion
+Assert-Equal "pluginmaster AssemblyVersion" $masterEntry.AssemblyVersion $aetherManifest.AssemblyVersion
 
-Assert-Equal "FFXIVHudPlugin.json RepoUrl" $pluginManifest.RepoUrl $expectedRepoUrl
-Assert-Equal "FFXIVHudReimagined.json RepoUrl" $reimaginedManifest.RepoUrl $expectedRepoUrl
+Assert-Equal "AetherUI.json RepoUrl" $aetherManifest.RepoUrl $expectedRepoUrl
 Assert-Equal "pluginmaster RepoUrl" $masterEntry.RepoUrl $expectedRepoUrl
 
 Assert-Equal "pluginmaster DownloadLinkInstall" $masterEntry.DownloadLinkInstall $expectedReleaseZipUrl
@@ -62,11 +47,12 @@ if (!(Test-Path $releaseZipPath)) {
 }
 
 $requiredZipEntries = @(
-    "FFXIVHudPlugin.dll",
-    "FFXIVHudPlugin.json",
-    "FFXIVHudReimagined.dll",
-    "FFXIVHudReimagined.deps.json",
-    "FFXIVHudReimagined.json"
+    "AetherUI.dll",
+    "AetherUI.deps.json",
+    "AetherUI.json",
+    "Colourful.dll",
+    "changelog.md",
+    "LICENSE"
 )
 
 Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -89,5 +75,5 @@ finally {
 }
 
 Write-Host "Package validation passed."
-Write-Host "Version: $csprojVersion"
+Write-Host "Version: $($aetherManifest.AssemblyVersion)"
 Write-Host "InternalName: $expectedInternalName"
