@@ -100,6 +100,11 @@ namespace DelvUI.Interface
 
         public bool IsElementHidden(HudElement element)
         {
+            if (!element.GetConfig().Enabled)
+            {
+                return true;
+            }
+
             IHudElementWithVisibilityConfig? e = element as IHudElementWithVisibilityConfig;
             if (e == null || e.VisibilityConfig == null) { return false; }
 

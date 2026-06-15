@@ -34,7 +34,8 @@ namespace DelvUI.Interface.GeneralElements
         {
             var clampedSize = MinimapLayout.ClampSize(Config.Size);
             var size = new Vector2(clampedSize, clampedSize);
-            return (new List<Vector2> { Config.Position - (size * 0.5f) }, new List<Vector2> { size });
+            // Config.Position is the minimap center; DraggableHudElement applies Center anchoring.
+            return (new List<Vector2> { Config.Position }, new List<Vector2> { size });
         }
 
         public override void DrawChildren(Vector2 origin)

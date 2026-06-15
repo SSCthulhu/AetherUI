@@ -92,9 +92,9 @@ namespace DelvUI.Interface
         public bool IsElementVisible(HudElement? element = null)
         {
             if (!Enabled) { return true; }
+            if (element != null && !element.GetConfig().Enabled) { return false; }
             if (!ConfigurationManager.Instance.LockHUD) { return true; }
             if (element != null && element.GetType() == typeof(PlayerCastbarHud)) { return true; }
-            if (element != null && !element.GetConfig().Enabled) { return false; }
 
             bool isInIslandSanctuary = IsInIslandSanctuary();
             bool isInDuty = IsInDuty() && !isInIslandSanctuary;

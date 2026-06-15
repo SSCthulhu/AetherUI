@@ -231,6 +231,47 @@ namespace DelvUI.Interface.GeneralElements
                 .Key;
         }
 
+        public bool DrawApplyGlobalFontsButton(ref bool changed, bool centered = false)
+        {
+            const string label = "Apply Global Fonts";
+            Vector2 buttonSize = ImGui.CalcTextSize(label) + ImGui.GetStyle().FramePadding * 2f;
+
+            if (centered)
+            {
+                float offset = Math.Max(0f, (ImGui.GetContentRegionAvail().X - buttonSize.X) * 0.5f);
+                ImGui.SetCursorPosX(ImGui.GetCursorPosX() + offset);
+            }
+
+            if (ImGui.Button(label, buttonSize))
+            {
+                _applyGlobalFontsRequested = true;
+            }
+
+            if (!_applyGlobalFontsRequested)
+            {
+                return false;
+            }
+
+            string[] lines = new string[]
+            {
+                "Apply current Global Font and Global Numeric Font to all labels?",
+                "This will overwrite existing per-label font selections."
+            };
+            var (didConfirm, didClose) = ImGuiHelper.DrawConfirmationModal("Apply global fonts to all labels?", lines);
+
+            if (didConfirm)
+            {
+                changed |= ApplyGlobalFontsToAllLabels();
+            }
+
+            if (didConfirm || didClose)
+            {
+                _applyGlobalFontsRequested = false;
+            }
+
+            return false;
+        }
+
         private bool ApplyGlobalFontsToAllLabels()
         {
             if (string.IsNullOrEmpty(GlobalFontKey) && string.IsNullOrEmpty(GlobalNumericFontKey))
@@ -499,25 +540,7 @@ namespace DelvUI.Interface.GeneralElements
                 }
             }
 
-            if (_applyGlobalFontsRequested)
-            {
-                string[] lines = new string[]
-                {
-                    "Apply current Global Font and Global Numeric Font to all labels?",
-                    "This will overwrite existing per-label font selections."
-                };
-                var (didConfirm, didClose) = ImGuiHelper.DrawConfirmationModal("Apply global fonts to all labels?", lines);
-
-                if (didConfirm)
-                {
-                    changed |= ApplyGlobalFontsToAllLabels();
-                }
-
-                if (didConfirm || didClose)
-                {
-                    _applyGlobalFontsRequested = false;
-                }
-            }
+            DrawApplyGlobalFontsButton(ref changed);
 
             // delete confirmation
             if (_removingIndex >= 0)

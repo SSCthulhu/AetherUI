@@ -48,6 +48,7 @@ namespace DelvUI
         public static IChatGui Chat { get; private set; } = null!;
 
         public static ISharedImmediateTexture? BannerTexture;
+        public static ISharedImmediateTexture? HomeHeroBannerTexture;
 
         public static string AssemblyLocation { get; private set; } = "";
         public const string PluginDisplayName = "Aether UI";
@@ -126,6 +127,7 @@ namespace DelvUI
             FontsManager.Initialize(AssemblyLocation);
             BarTexturesManager.Initialize(AssemblyLocation);
             LoadBanner();
+            LoadHomeHeroBanner();
 
             // initialize a not-necessarily-defaults configuration
             ConfigurationManager.Initialize();
@@ -207,6 +209,27 @@ namespace DelvUI
             Logger.Info("Starting Aether UI Dispose v" + Version);
             Dispose(true);
             GC.SuppressFinalize(this);
+        }
+
+        private void LoadHomeHeroBanner()
+        {
+            string bannerImage = Path.Combine(Path.GetDirectoryName(AssemblyLocation) ?? "", "Media", "Images", "home_hero_banner.png");
+
+            if (File.Exists(bannerImage))
+            {
+                try
+                {
+                    HomeHeroBannerTexture = TextureProvider.GetFromFile(bannerImage);
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"Home hero banner failed to load. {bannerImage}\n\n{ex}");
+                }
+            }
+            else
+            {
+                Logger.Debug($"Home hero banner doesn't exist. {bannerImage}");
+            }
         }
 
         private void LoadBanner()

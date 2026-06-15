@@ -1,4 +1,4 @@
-﻿using DelvUI.Config.Attributes;
+using DelvUI.Config.Attributes;
 using Dalamud.Bindings.ImGui;
 using System;
 using System.IO;
@@ -22,7 +22,7 @@ namespace DelvUI.Config.Tree
             return base.AllowExport();
         }
 
-        public bool Draw(ref bool changed, float alpha)
+        public virtual bool Draw(ref bool changed, float alpha)
         {
             if (!Selected)
             {

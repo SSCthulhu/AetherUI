@@ -39,7 +39,7 @@ namespace DelvUI.Config.Profiles
             subSectionNode.Add(configPageNode);
             ProfilesNode.Add(subSectionNode);
 
-            ConfigurationManager.Instance.AddExtraSectionNode(ProfilesNode);
+            // Profiles UI is hosted in ProfilesImportSectionNode.
 
             // default profile
             if (!Profiles.ContainsKey(DefaultProfileName))

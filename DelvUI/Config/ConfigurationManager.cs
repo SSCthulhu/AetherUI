@@ -1,6 +1,9 @@
 using Dalamud.Interface.Internal;
 using Dalamud.Interface.Windowing;
 using Dalamud.Logging;
+using DelvUI.Config.Home;
+using DelvUI.Config.Navigation;
+using DelvUI.Config.Presets;
 using DelvUI.Config.Profiles;
 using DelvUI.Config.Tree;
 using DelvUI.Config.Windows;
@@ -124,6 +127,7 @@ namespace DelvUI.Config
             _configBaseNodeByProfile = new Dictionary<string, BaseNode>();
             _configBaseNode = new BaseNode();
             InitializeBaseNode(_configBaseNode);
+            _configBaseNode.SelectedOptionName = NavigationConstants.Home;
             _configBaseNode.ConfigObjectResetEvent += OnConfigObjectReset;
 
             _mainConfigWindow = new MainConfigWindow("Aether UI Settings");
@@ -399,9 +403,21 @@ namespace DelvUI.Config
         {
             PerformV2Migration();
             ConfigBaseNode.Load(ConfigDirectory);
+            InitializeHomeFeatureSettings();
         }
 
-        public void SaveConfigurations(bool forced = false)
+        private void InitializeHomeFeatureSettings()
+        {
+            HomeFeatureSettingsConfig? settings = GetConfigObject<HomeFeatureSettingsConfig>();
+            if (settings == null)
+            {
+                return;
+            }
+
+            FeatureRegistry.SyncHomeSettingsFromConfigs(ConfigBaseNode, settings);
+        }
+
+        public void SaveConfigurations(bool forced = false, bool saveProfile = true)
         {
             if (!forced && !ConfigBaseNode.NeedsSave)
             {
@@ -410,7 +426,10 @@ namespace DelvUI.Config
 
             ConfigBaseNode.Save(ConfigDirectory);
 
-            ProfilesManager.Instance?.SaveCurrentProfile();
+            if (saveProfile)
+            {
+                ProfilesManager.Instance?.SaveCurrentProfile();
+            }
 
             ConfigBaseNode.NeedsSave = false;
         }
@@ -418,7 +437,7 @@ namespace DelvUI.Config
         public void PerformV2Migration()
         {
             // create necessary folders
-            string[] newFolders = new string[] { "Other Elements", "Customization" };
+            string[] newFolders = new string[] { "Other Elements", "Customization", "Home" };
             foreach (string folder in newFolders)
             {
                 string path = Path.Combine(ConfigDirectory, folder);
@@ -521,7 +540,7 @@ namespace DelvUI.Config
 
             if (IsConfigWindowOpened || string.IsNullOrEmpty(loadedNode.SelectedOptionName))
             {
-                loadedNode.SelectedOptionName = ConfigBaseNode.SelectedOptionName;
+                loadedNode.SelectedOptionName = NavigationConstants.Home;
                 loadedNode.RefreshSelectedNode();
             }
 
@@ -535,21 +554,30 @@ namespace DelvUI.Config
 
             ResetEvent?.Invoke(this);
 
+            PresetManager.MarkCustomIfNeeded();
+
             return true;
         }
 
         private bool ImportProfileNonCached(string rawString, out BaseNode? node)
         {
             List<string> importStrings = new List<string>(rawString.Trim().Split(new string[] { "|" }, StringSplitOptions.RemoveEmptyEntries));
-            ImportData[] imports = importStrings.Select(str => new ImportData(str)).ToArray();
 
             node = new BaseNode();
             InitializeBaseNode(node);
 
             Dictionary<Type, PluginConfigObject> oldConfigObjects = new Dictionary<Type, PluginConfigObject>();
+            int skippedCount = 0;
+            int appliedCount = 0;
 
-            foreach (ImportData importData in imports)
+            foreach (string importString in importStrings)
             {
+                if (!ImportData.TryCreate(importString, out ImportData? importData) || importData == null)
+                {
+                    skippedCount++;
+                    continue;
+                }
+
                 PluginConfigObject? config = importData.GetObject();
                 if (config == null)
                 {
@@ -560,12 +588,47 @@ namespace DelvUI.Config
                 {
                     oldConfigObjects.Add(config.GetType(), config);
                 }
+
+                appliedCount++;
+            }
+
+            if (appliedCount == 0)
+            {
+                node = null;
+                return false;
+            }
+
+            if (skippedCount > 0)
+            {
+                Plugin.Logger.Warning($"Skipped {skippedCount} unrecognized config entries during import.");
             }
 
             if (ProfilesManager.Instance != null)
             {
-                node.AddExtraSectionNode(ProfilesManager.Instance.ProfilesNode);
+                // Profiles are managed through ProfilesImportSectionNode in the config UI.
             }
+
+            return true;
+        }
+
+        public bool ApplyPresetImport(string rawString)
+        {
+            if (!ImportProfileNonCached(rawString, out BaseNode? loadedNode) || loadedNode == null)
+            {
+                return false;
+            }
+
+            loadedNode.SelectedOptionName = NavigationConstants.Home;
+            loadedNode.RefreshSelectedNode();
+
+            ConfigBaseNode.ConfigObjectResetEvent -= OnConfigObjectReset;
+            ConfigBaseNode = loadedNode;
+            ConfigBaseNode.ConfigObjectResetEvent += OnConfigObjectReset;
+
+            PerformV2Migration();
+            InitializeHomeFeatureSettings();
+
+            ResetEvent?.Invoke(this);
 
             return true;
         }
@@ -585,6 +648,9 @@ namespace DelvUI.Config
 
         private static Type[] ConfigObjectTypes = new Type[]
         {
+            // Home
+            typeof(HomeFeatureSettingsConfig),
+
             // Player Parameter Orb
             typeof(PlayerParameterOrbConfig),
 
@@ -654,6 +720,7 @@ namespace DelvUI.Config
             typeof(EnemyListDebuffsConfig),
 
             // Job Specific Bars
+            typeof(JobBarsGeneralConfig),
             typeof(PaladinConfig),
             typeof(WarriorConfig),
             typeof(DarkKnightConfig),

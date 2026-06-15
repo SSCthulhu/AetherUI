@@ -270,7 +270,7 @@ namespace DelvUI.Interface
                 throw new ArgumentException("Invalid type");
             }
 
-            Type? type = Type.GetType(typeString);
+            Type? type = ResolveConfigType(typeString);
             if (type == null)
             {
                 throw new ArgumentException("Invalid type: \"" + typeString + "\"");
@@ -278,6 +278,47 @@ namespace DelvUI.Interface
 
             ConfigType = type;
             Name = Utils.UserFriendlyConfigName(type.Name);
+        }
+
+        public static bool TryCreate(string base64String, out ImportData? importData)
+        {
+            importData = null;
+
+            try
+            {
+                string jsonString = ImportExportHelper.Base64DecodeAndDecompress(base64String);
+                string? typeString = (string?)JObject.Parse(jsonString)["$type"];
+                if (typeString == null)
+                {
+                    return false;
+                }
+
+                Type? type = ResolveConfigType(typeString);
+                if (type == null)
+                {
+                    return false;
+                }
+
+                importData = new ImportData(base64String);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        public static Type? ResolveConfigType(string typeString)
+        {
+            Type? type = Type.GetType(typeString);
+            if (type != null)
+            {
+                return type;
+            }
+
+            int commaIndex = typeString.IndexOf(',');
+            string typeName = commaIndex >= 0 ? typeString[..commaIndex].Trim() : typeString.Trim();
+            return typeof(PluginConfigObject).Assembly.GetType(typeName);
         }
 
         public PluginConfigObject? GetObject()

@@ -183,6 +183,27 @@ namespace DelvUI.Interface
             _selectedElement = sender;
         }
 
+        private void ClearDisabledSelection()
+        {
+            if (_selectedElement == null)
+            {
+                return;
+            }
+
+            if (!_hudHelper.IsElementHidden(_selectedElement))
+            {
+                return;
+            }
+
+            _selectedElement.Selected = false;
+            _selectedElement = null;
+
+            if (_jobHud != null)
+            {
+                _jobHud.Selected = false;
+            }
+        }
+
         private void CreateHudElements()
         {
             _gridConfig = ConfigurationManager.Instance.GetConfigObject<GridConfig>();
@@ -472,6 +493,8 @@ namespace DelvUI.Interface
             }
 
             // grid
+            ClearDisabledSelection();
+
             if (_gridConfig is not null && _gridConfig.Enabled)
             {
                 DraggablesHelper.DrawGrid(_gridConfig, _hudOptions, _selectedElement);
@@ -563,6 +586,13 @@ namespace DelvUI.Interface
 
         private void UpdateJob(uint newJobId)
         {
+            JobBarsGeneralConfig? jobBarsGeneral = ConfigurationManager.Instance.GetConfigObject<JobBarsGeneralConfig>();
+            if (jobBarsGeneral != null && !jobBarsGeneral.Enabled)
+            {
+                _jobHud = null;
+                return;
+            }
+
             if (_jobHud != null && _jobHud.Config.JobId == newJobId)
             {
                 return;
