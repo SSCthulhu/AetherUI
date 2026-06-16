@@ -1,3 +1,10 @@
+# 2.8.1.0
+- Added Home-first configuration UX with quick feature toggles, HUD presets, and global typography controls.
+- Fixed Action Combat preset applying stale duplicate configs that disabled Action Camera soft targeting.
+- Fixed Home quick toggles cross-updating unrelated features on the Custom preset.
+- Fixed Home pills incorrectly showing Party Frames and Action Camera as off when sub-sections were disabled.
+- Preset import now skips duplicate config entries and removes legacy orphan config files on load.
+
 # 2.8.0.0
 - Added Action Camera improvements:
   * Restrict to Game Window toggle keeps the cursor anchored to the FFXIV viewport while locked.

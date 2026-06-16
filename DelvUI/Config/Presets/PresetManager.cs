@@ -199,18 +199,14 @@ namespace DelvUI.Config.Presets
                         ApplyRaidFocusedAdjustments();
                         break;
                     case AetherPreset.ActionCombat:
-                        ApplyActionCombatAdjustments();
+                        ApplyActionCombatHomeDefaults();
                         break;
                 }
 
                 HomeFeatureSettingsConfig? settings = ConfigurationManager.Instance.GetConfigObject<HomeFeatureSettingsConfig>();
                 if (settings != null)
                 {
-                    if (preset != AetherPreset.ActionCombat)
-                    {
-                        FeatureRegistry.SyncHomeSettingsFromConfigs(ConfigurationManager.Instance.ConfigBaseNode, settings);
-                    }
-
+                    FeatureRegistry.SyncHomeSettingsFromConfigs(ConfigurationManager.Instance.ConfigBaseNode, settings);
                     settings.ActivePreset = (ActivePresetSelection)preset;
                     _pendingTabIndex = (int)preset;
                 }
@@ -307,22 +303,24 @@ namespace DelvUI.Config.Presets
             SyncHomeFromAppliedFeatures();
         }
 
-        private static void ApplyActionCombatAdjustments()
+
+        private static void ApplyActionCombatHomeDefaults()
         {
-            EnableConfigs(
-                typeof(PlayerBuffsListConfig),
-                typeof(PlayerDebuffsListConfig),
-                typeof(TargetBuffsListConfig),
-                typeof(TargetDebuffsListConfig),
-                typeof(FocusTargetBuffsListConfig),
-                typeof(FocusTargetDebuffsListConfig),
-                typeof(CustomEffectsListConfig),
-                typeof(ActionCameraConfig));
+            EnableConfigs(typeof(ActionCameraConfig));
 
-            DisableConfigs(typeof(JobBarsGeneralConfig));
+            ActionCameraConfig? actionCameraConfig =
+                ConfigurationManager.Instance.GetConfigObject<ActionCameraConfig>();
+            if (actionCameraConfig != null)
+            {
+                actionCameraConfig.EnableSoftTargetSuggestion = true;
+            }
 
-            SetFeatureEnabled(true, FeatureId.BuffsAndDebuffs, FeatureId.ActionCamera);
-            SetFeatureEnabled(false, FeatureId.JobSpecificBars);
+            PartyFramesConfig? partyFramesConfig =
+                ConfigurationManager.Instance.GetConfigObject<PartyFramesConfig>();
+            if (partyFramesConfig != null)
+            {
+                partyFramesConfig.Enabled = true;
+            }
         }
 
         private static void ApplyRaidFocusedAdjustments()

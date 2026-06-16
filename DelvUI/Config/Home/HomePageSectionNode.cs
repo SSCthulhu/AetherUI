@@ -8,6 +8,7 @@ using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
 using Dalamud.Interface.Utility;
 using System;
+using System.Collections.Generic;
 using System.Numerics;
 
 namespace DelvUI.Config.Home
@@ -182,39 +183,42 @@ namespace DelvUI.Config.Home
                 return false;
             }
 
-            bool changed = false;
+            HashSet<FeatureId> changedFeatures = new();
             float scale = ImGuiHelpers.GlobalScale;
             float rowHeight = 48f * scale;
             float categoryGap = CategorySpacing * scale;
             float contentX = ImGui.GetCursorPosX();
 
-            changed |= DrawPlayerTargetSection(settings, gridWidth, rowHeight, contentX);
+            DrawPlayerTargetSection(settings, gridWidth, rowHeight, contentX, changedFeatures);
             ImGui.SetCursorPos(new Vector2(contentX, ImGui.GetCursorPosY() + categoryGap));
 
-            changed |= DrawPartyRaidSection(settings, gridWidth, rowHeight, contentX);
+            DrawPartyRaidSection(settings, gridWidth, rowHeight, contentX, changedFeatures);
             ImGui.SetCursorPos(new Vector2(contentX, ImGui.GetCursorPosY() + categoryGap));
 
-            changed |= DrawUtilitySection(settings, gridWidth, rowHeight, contentX);
+            DrawUtilitySection(settings, gridWidth, rowHeight, contentX, changedFeatures);
 
-            if (changed)
+            if (changedFeatures.Count > 0)
             {
-                FeatureRegistry.ApplyHomeSettingsToConfigs(ConfigurationManager.Instance.ConfigBaseNode, settings);
+                FeatureRegistry.ApplyHomeSettingsToConfigs(
+                    ConfigurationManager.Instance.ConfigBaseNode,
+                    settings,
+                    changedFeatures);
             }
 
-            return changed;
+            return changedFeatures.Count > 0;
         }
 
-        private static bool DrawPlayerTargetSection(
+        private static void DrawPlayerTargetSection(
             HomeFeatureSettingsConfig settings,
             float gridWidth,
             float rowHeight,
-            float contentX)
+            float contentX,
+            HashSet<FeatureId> changedFeatures)
         {
             ImGui.SetCursorPos(new Vector2(contentX, ImGui.GetCursorPosY()));
             HomeCategoryHeader.Draw("Player / Target");
             float gridTop = ImGui.GetCursorPosY();
 
-            bool changed = false;
             HomeFeatureGridLayout grid = new HomeFeatureGridLayout(
                 gridWidth,
                 3,
@@ -223,36 +227,34 @@ namespace DelvUI.Config.Home
             float groupedHeight = grid.GetContentHeight(3, rowHeight);
 
             grid.SetSlot(0, 0, rowHeight);
-            changed |= DrawFeatureTileAt(settings, FeatureId.PlayerParameterOrb, "Player Orb", grid.GetSlotSize(0, 1, rowHeight));
+            DrawFeatureTileAt(settings, FeatureId.PlayerParameterOrb, "Player Orb", grid.GetSlotSize(0, 1, rowHeight), changedFeatures);
 
             grid.SetSlot(0, 1, rowHeight);
-            changed |= DrawFeatureTileAt(settings, FeatureId.BuffsAndDebuffs, "Buffs & Debuffs", grid.GetSlotSize(0, 1, rowHeight));
+            DrawFeatureTileAt(settings, FeatureId.BuffsAndDebuffs, "Buffs & Debuffs", grid.GetSlotSize(0, 1, rowHeight), changedFeatures);
 
             grid.SetSlot(0, 2, rowHeight);
-            changed |= DrawFeatureTileAt(settings, FeatureId.JobSpecificBars, "Job Bars", grid.GetSlotSize(0, 1, rowHeight));
+            DrawFeatureTileAt(settings, FeatureId.JobSpecificBars, "Job Bars", grid.GetSlotSize(0, 1, rowHeight), changedFeatures);
 
             grid.SetSlot(1, 0, rowHeight);
-            changed |= DrawIndividualFramesTile(settings, grid.GetSlotSize(1, 1, groupedHeight));
+            DrawIndividualFramesTile(settings, grid.GetSlotSize(1, 1, groupedHeight), changedFeatures);
 
             grid.SetSlot(2, 0, rowHeight);
-            changed |= DrawOtherElementsTile(settings, grid.GetSlotSize(2, 1, groupedHeight));
+            DrawOtherElementsTile(settings, grid.GetSlotSize(2, 1, groupedHeight), changedFeatures);
 
             ImGui.SetCursorPos(new Vector2(contentX, gridTop + groupedHeight));
-
-            return changed;
         }
 
-        private static bool DrawPartyRaidSection(
+        private static void DrawPartyRaidSection(
             HomeFeatureSettingsConfig settings,
             float gridWidth,
             float rowHeight,
-            float contentX)
+            float contentX,
+            HashSet<FeatureId> changedFeatures)
         {
             ImGui.SetCursorPos(new Vector2(contentX, ImGui.GetCursorPosY()));
             HomeCategoryHeader.Draw("Party / Raid");
             float gridTop = ImGui.GetCursorPosY();
 
-            bool changed = false;
             HomeFeatureGridLayout grid = new HomeFeatureGridLayout(
                 gridWidth,
                 2,
@@ -260,29 +262,27 @@ namespace DelvUI.Config.Home
                 new Vector2(contentX, gridTop));
 
             grid.SetSlot(0, 0, rowHeight);
-            changed |= DrawFeatureTileAt(settings, FeatureId.Nameplates, "Nameplates", grid.GetSlotSize(0, 1, rowHeight));
+            DrawFeatureTileAt(settings, FeatureId.Nameplates, "Nameplates", grid.GetSlotSize(0, 1, rowHeight), changedFeatures);
 
             grid.SetSlot(1, 0, rowHeight);
-            changed |= DrawFeatureTileAt(settings, FeatureId.PartyFrames, "Party Frames", grid.GetSlotSize(1, 1, rowHeight));
+            DrawFeatureTileAt(settings, FeatureId.PartyFrames, "Party Frames", grid.GetSlotSize(1, 1, rowHeight), changedFeatures);
 
             grid.SetSlot(0, 1, rowHeight);
-            changed |= DrawFeatureTileAt(settings, FeatureId.PartyCooldowns, "Party Cooldowns", grid.GetSlotSize(0, 1, rowHeight));
+            DrawFeatureTileAt(settings, FeatureId.PartyCooldowns, "Party Cooldowns", grid.GetSlotSize(0, 1, rowHeight), changedFeatures);
 
             grid.SetSlot(1, 1, rowHeight);
-            changed |= DrawFeatureTileAt(settings, FeatureId.EnemyList, "Enemy List", grid.GetSlotSize(1, 1, rowHeight));
+            DrawFeatureTileAt(settings, FeatureId.EnemyList, "Enemy List", grid.GetSlotSize(1, 1, rowHeight), changedFeatures);
 
             ImGui.SetCursorPos(new Vector2(contentX, gridTop + grid.GetContentHeight(2, rowHeight)));
-
-            return changed;
         }
 
-        private static bool DrawUtilitySection(
+        private static void DrawUtilitySection(
             HomeFeatureSettingsConfig settings,
             float gridWidth,
             float rowHeight,
-            float contentX)
+            float contentX,
+            HashSet<FeatureId> changedFeatures)
         {
-            bool changed = false;
             float columnWidth = (gridWidth - GridGap) * 0.5f;
             Vector2 tileSize = new Vector2(columnWidth, rowHeight);
             float startY = ImGui.GetCursorPosY();
@@ -296,21 +296,20 @@ namespace DelvUI.Config.Home
             HomeCategoryHeader.Draw("Action Camera");
 
             ImGui.SetCursorPos(new Vector2(contentX, tileY));
-            changed |= DrawFeatureTileAt(settings, FeatureId.Minimap, "Minimap", tileSize);
+            DrawFeatureTileAt(settings, FeatureId.Minimap, "Minimap", tileSize, changedFeatures);
 
             ImGui.SetCursorPos(new Vector2(contentX + columnWidth + GridGap, tileY));
-            changed |= DrawFeatureTileAt(settings, FeatureId.ActionCamera, "Action Camera", tileSize);
+            DrawFeatureTileAt(settings, FeatureId.ActionCamera, "Action Camera", tileSize, changedFeatures);
 
             ImGui.SetCursorPos(new Vector2(contentX, tileY + rowHeight));
-
-            return changed;
         }
 
-        private static bool DrawFeatureTileAt(
+        private static void DrawFeatureTileAt(
             HomeFeatureSettingsConfig settings,
             FeatureId featureId,
             string title,
-            Vector2 tileSize)
+            Vector2 tileSize,
+            HashSet<FeatureId> changedFeatures)
         {
             bool enabled = FeatureRegistry.IsFeatureEnabled(settings, featureId);
             bool tileChanged = HomeFeatureTile.Draw(
@@ -325,15 +324,19 @@ namespace DelvUI.Config.Home
             if (tileChanged)
             {
                 FeatureRegistry.SetFeatureEnabled(settings, featureId, enabled);
+                changedFeatures.Add(featureId);
             }
-
-            return tileChanged;
         }
 
-        private static bool DrawIndividualFramesTile(
+        private static void DrawIndividualFramesTile(
             HomeFeatureSettingsConfig settings,
-            Vector2 tileSize)
+            Vector2 tileSize,
+            HashSet<FeatureId> changedFeatures)
         {
+            bool unitFrames = settings.UnitFrames;
+            bool manaBars = settings.ManaBars;
+            bool castBars = settings.CastBars;
+
             bool tileChanged = HomeFeatureTile.DrawIndividualFramesGroup(
                 "feature_individual_frames",
                 tileSize,
@@ -341,17 +344,33 @@ namespace DelvUI.Config.Home
                 ref settings.ManaBars,
                 ref settings.CastBars);
 
-            if (tileChanged)
+            if (!tileChanged)
             {
-                settings.IndividualFramesMaster = settings.UnitFrames || settings.ManaBars || settings.CastBars;
+                return;
             }
 
-            return tileChanged;
+            settings.IndividualFramesMaster = settings.UnitFrames || settings.ManaBars || settings.CastBars;
+
+            if (unitFrames != settings.UnitFrames)
+            {
+                changedFeatures.Add(FeatureId.UnitFrames);
+            }
+
+            if (manaBars != settings.ManaBars)
+            {
+                changedFeatures.Add(FeatureId.ManaBars);
+            }
+
+            if (castBars != settings.CastBars)
+            {
+                changedFeatures.Add(FeatureId.CastBars);
+            }
         }
 
-        private static bool DrawOtherElementsTile(
+        private static void DrawOtherElementsTile(
             HomeFeatureSettingsConfig settings,
-            Vector2 tileSize)
+            Vector2 tileSize,
+            HashSet<FeatureId> changedFeatures)
         {
             bool changed = HomeFeatureTile.DrawOtherElementsGroup(
                 "feature_other_elements",
@@ -365,9 +384,8 @@ namespace DelvUI.Config.Home
             if (changed)
             {
                 FeatureRegistry.SyncOtherElementsMaster(settings);
+                changedFeatures.Add(FeatureId.OtherElements);
             }
-
-            return changed;
         }
     }
 }

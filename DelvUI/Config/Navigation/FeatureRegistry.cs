@@ -123,6 +123,19 @@ namespace DelvUI.Config.Navigation
             [FeatureId.ActionCamera] = new[] { typeof(ActionCameraConfig) }
         };
 
+        // Home master toggles reflect root HUD configs only; sub-section Enabled flags stay independent.
+        private static readonly Dictionary<FeatureId, Type> MasterConfigTypes = new()
+        {
+            [FeatureId.PlayerParameterOrb] = typeof(PlayerParameterOrbConfig),
+            [FeatureId.Nameplates] = typeof(NameplatesGeneralConfig),
+            [FeatureId.PartyFrames] = typeof(PartyFramesConfig),
+            [FeatureId.PartyCooldowns] = typeof(PartyCooldownsConfig),
+            [FeatureId.EnemyList] = typeof(EnemyListConfig),
+            [FeatureId.JobSpecificBars] = typeof(JobBarsGeneralConfig),
+            [FeatureId.Minimap] = typeof(MinimapConfig),
+            [FeatureId.ActionCamera] = typeof(ActionCameraConfig)
+        };
+
         public static string GetSectionName(FeatureId featureId) => SectionNames[featureId];
 
         public static bool IsNavExcludedSection(string sectionName)
@@ -259,28 +272,45 @@ namespace DelvUI.Config.Navigation
             }
         }
 
-        public static void ApplyHomeSettingsToConfigs(BaseNode node, HomeFeatureSettingsConfig settings)
+        public static void ApplyHomeSettingsToConfigs(
+            BaseNode node,
+            HomeFeatureSettingsConfig settings,
+            HashSet<FeatureId>? onlyFeatures = null)
         {
             foreach (KeyValuePair<FeatureId, Type[]> entry in ConfigTypes)
             {
+                if (onlyFeatures != null && !onlyFeatures.Contains(entry.Key))
+                {
+                    continue;
+                }
+
                 if (entry.Key == FeatureId.OtherElements)
                 {
                     ApplyOtherElementsToConfigs(node, settings);
                     continue;
                 }
 
-                bool enabled = IsFeatureEnabled(settings, entry.Key);
+                ApplyFeatureToConfigs(node, settings, entry.Key, entry.Value);
+            }
+        }
 
-                foreach (Type configType in entry.Value)
+        private static void ApplyFeatureToConfigs(
+            BaseNode node,
+            HomeFeatureSettingsConfig settings,
+            FeatureId featureId,
+            Type[] configTypes)
+        {
+            bool enabled = IsFeatureEnabled(settings, featureId);
+
+            foreach (Type configType in configTypes)
+            {
+                PluginConfigObject? config = node.GetConfigObjectForType(configType);
+                if (config == null || !config.Disableable)
                 {
-                    PluginConfigObject? config = node.GetConfigObjectForType(configType);
-                    if (config == null || !config.Disableable)
-                    {
-                        continue;
-                    }
-
-                    config.Enabled = enabled;
+                    continue;
                 }
+
+                config.Enabled = enabled;
             }
         }
 
@@ -334,6 +364,31 @@ namespace DelvUI.Config.Navigation
             return config == null || config.Enabled;
         }
 
+        private static bool GetFeatureEnabledFromConfigs(BaseNode node, FeatureId featureId, Type[] configTypes)
+        {
+            if (MasterConfigTypes.TryGetValue(featureId, out Type? masterType))
+            {
+                PluginConfigObject? masterConfig = node.GetConfigObjectForType(masterType);
+                return masterConfig == null || masterConfig.Enabled;
+            }
+
+            foreach (Type configType in configTypes)
+            {
+                PluginConfigObject? config = node.GetConfigObjectForType(configType);
+                if (config == null || !config.Disableable)
+                {
+                    continue;
+                }
+
+                if (!config.Enabled)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         public static void SyncHomeSettingsFromConfigs(BaseNode node, HomeFeatureSettingsConfig settings)
         {
             foreach (KeyValuePair<FeatureId, Type[]> entry in ConfigTypes)
@@ -345,22 +400,7 @@ namespace DelvUI.Config.Navigation
                     continue;
                 }
 
-                bool enabled = true;
-
-                foreach (Type configType in entry.Value)
-                {
-                    PluginConfigObject? config = node.GetConfigObjectForType(configType);
-                    if (config == null || !config.Disableable)
-                    {
-                        continue;
-                    }
-
-                    if (!config.Enabled)
-                    {
-                        enabled = false;
-                        break;
-                    }
-                }
+                bool enabled = GetFeatureEnabledFromConfigs(node, entry.Key, entry.Value);
 
                 switch (entry.Key)
                 {

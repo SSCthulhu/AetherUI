@@ -1,4 +1,4 @@
-﻿using Dalamud.Interface.Windowing;
+using Dalamud.Interface.Windowing;
 using Dalamud.Logging;
 using DelvUI.Config.Tree;
 using DelvUI.Interface.GeneralElements;
@@ -56,9 +56,13 @@ namespace DelvUI.Config.Windows
                 ImGui.PushStyleColor(ImGuiCol.BorderShadow, new Vector4(0f / 255f, 0f / 255f, 0f / 255f, _alpha));
                 ImGui.PushStyleColor(ImGuiCol.WindowBg, new Vector4(20f / 255f, 21f / 255f, 20f / 255f, _alpha));
                 _popColors = true;
+                ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 0);
+            }
+            else
+            {
+                ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 1);
             }
 
-            ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 1);
             ImGui.PushStyleVar(ImGuiStyleVar.WindowRounding, 1);
         }
 
@@ -77,6 +81,11 @@ namespace DelvUI.Config.Windows
             node?.Draw(_alpha);
 
             _size = ImGui.GetWindowSize();
+
+            if (ConfigurationManager.Instance.OverrideDalamudStyle)
+            {
+                ConfigWindowChrome.DrawWindowBorder(_alpha);
+            }
         }
     }
 }

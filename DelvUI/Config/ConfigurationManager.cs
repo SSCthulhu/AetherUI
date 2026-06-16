@@ -477,6 +477,28 @@ namespace DelvUI.Config
             }
 
             MigratePlayerParameterOrbSection();
+            RemoveLegacyDuplicateConfigFiles();
+        }
+
+        private void RemoveLegacyDuplicateConfigFiles()
+        {
+            TryDeleteLegacyConfigFile(Path.Combine(ConfigDirectory, "Misc", "Action Camera.json"));
+            TryDeleteLegacyConfigFile(Path.Combine(ConfigDirectory, "Player Parameter Orb", "General.json"));
+        }
+
+        private static void TryDeleteLegacyConfigFile(string path)
+        {
+            try
+            {
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+            }
+            catch (Exception e)
+            {
+                Plugin.Logger.Error("Error deleting legacy config file \"" + path + "\": " + e.Message);
+            }
         }
 
         private void MigratePlayerParameterOrbSection()
@@ -567,7 +589,9 @@ namespace DelvUI.Config
             InitializeBaseNode(node);
 
             Dictionary<Type, PluginConfigObject> oldConfigObjects = new Dictionary<Type, PluginConfigObject>();
+            HashSet<Type> appliedTypes = new HashSet<Type>();
             int skippedCount = 0;
+            int duplicateCount = 0;
             int appliedCount = 0;
 
             foreach (string importString in importStrings)
@@ -584,11 +608,19 @@ namespace DelvUI.Config
                     return false;
                 }
 
-                if (!node.SetConfigObject(config))
+                Type configType = config.GetType();
+                if (appliedTypes.Contains(configType))
                 {
-                    oldConfigObjects.Add(config.GetType(), config);
+                    duplicateCount++;
+                    continue;
                 }
 
+                if (!node.SetConfigObject(config))
+                {
+                    oldConfigObjects.Add(configType, config);
+                }
+
+                appliedTypes.Add(configType);
                 appliedCount++;
             }
 
@@ -601,6 +633,11 @@ namespace DelvUI.Config
             if (skippedCount > 0)
             {
                 Plugin.Logger.Warning($"Skipped {skippedCount} unrecognized config entries during import.");
+            }
+
+            if (duplicateCount > 0)
+            {
+                Plugin.Logger.Warning($"Skipped {duplicateCount} duplicate config entries during import.");
             }
 
             if (ProfilesManager.Instance != null)

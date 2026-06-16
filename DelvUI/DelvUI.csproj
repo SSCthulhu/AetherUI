@@ -10,9 +10,9 @@
 	<!-- Assembly Configuration -->
 	<PropertyGroup>
 		<AssemblyName>AetherUI</AssemblyName>
-		<AssemblyVersion>2.8.0.0</AssemblyVersion>
-		<FileVersion>2.8.0.0</FileVersion>
-		<InformationalVersion>2.8.0.0</InformationalVersion>
+		<AssemblyVersion>2.8.1.0</AssemblyVersion>
+		<FileVersion>2.8.1.0</FileVersion>
+		<InformationalVersion>2.8.1.0</InformationalVersion>
 	</PropertyGroup>
 
 	<!-- Build Configuration -->
@@ -59,11 +59,26 @@
 		<Content Include="$(ProjectDir)AetherUI.json" CopyToOutputDirectory="Always" />
 		<Content Include="$(ProjectDir)changelog.md" CopyToOutputDirectory="Always" />
 		<Content Include="$(ProjectDir)Media\**" CopyToOutputDirectory="PreserveNewest" />
+		<Content Include="$(ProjectDir)Media\Images\home_hero_banner.png" CopyToOutputDirectory="Always" />
 		<!-- <Content Include="$(ProjectDir)Media\Images\icon.png" Link="images/icon.png" CopyToOutputDirectory="PreserveNewest" Visible="false" /> -->
 	</ItemGroup>
 
 	<Target Name="CopyLicenseToOutput" AfterTargets="Build">
 		<Copy SourceFiles="$(ProjectDir)..\LICENSE" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
+	</Target>
+
+	<Target Name="DeployToXivLauncher" AfterTargets="Build">
+		<PropertyGroup>
+			<XivPluginInstallDir>$(APPDATA)\XIVLauncher\installedPlugins\AetherUI\$(AssemblyVersion)\</XivPluginInstallDir>
+		</PropertyGroup>
+		<ItemGroup>
+			<DeployOutputFiles Include="$(OutputPath)**\*.*" />
+		</ItemGroup>
+		<Copy
+			SourceFiles="@(DeployOutputFiles)"
+			DestinationFiles="@(DeployOutputFiles->'$(XivPluginInstallDir)%(RecursiveDir)%(Filename)%(Extension)')"
+			SkipUnchangedFiles="false" />
+		<Message Importance="high" Text="Deployed AetherUI build to $(XivPluginInstallDir)" />
 	</Target>
 
 	<!-- NuGet Packages -->

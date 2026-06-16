@@ -50,6 +50,9 @@ namespace DelvUI
         public static ISharedImmediateTexture? BannerTexture;
         public static ISharedImmediateTexture? HomeHeroBannerTexture;
 
+        private static string? _homeHeroBannerPath;
+        private static DateTime _homeHeroBannerLoadedUtc = DateTime.MinValue;
+
         public static string AssemblyLocation { get; private set; } = "";
         public const string PluginDisplayName = "Aether UI";
         public const string PluginCommandPrimary = "/aetherui";
@@ -213,28 +216,62 @@ namespace DelvUI
 
         private void LoadHomeHeroBanner()
         {
-            string bannerImage = Path.Combine(Path.GetDirectoryName(AssemblyLocation) ?? "", "Media", "Images", "home_hero_banner.png");
+            TryLoadHomeHeroBanner(force: true);
+        }
 
-            if (File.Exists(bannerImage))
+        public static void ReloadHomeHeroBannerIfChanged()
+        {
+            TryLoadHomeHeroBanner(force: false);
+        }
+
+        private static void TryLoadHomeHeroBanner(bool force)
+        {
+            string imagesDir = Path.Combine(Path.GetDirectoryName(AssemblyLocation) ?? "", "Media", "Images");
+            string[] candidates =
             {
+                Path.Combine(imagesDir, "home_hero_banner.png"),
+                Path.Combine(imagesDir, "home_hero_banner_1.png")
+            };
+
+            foreach (string bannerImage in candidates)
+            {
+                if (!File.Exists(bannerImage))
+                {
+                    continue;
+                }
+
+                DateTime lastWriteUtc = File.GetLastWriteTimeUtc(bannerImage);
+                if (!force
+                    && bannerImage == _homeHeroBannerPath
+                    && lastWriteUtc <= _homeHeroBannerLoadedUtc)
+                {
+                    return;
+                }
+
                 try
                 {
                     HomeHeroBannerTexture = TextureProvider.GetFromFile(bannerImage);
+                    _homeHeroBannerPath = bannerImage;
+                    _homeHeroBannerLoadedUtc = lastWriteUtc;
+                    return;
                 }
                 catch (Exception ex)
                 {
                     Logger.Error($"Home hero banner failed to load. {bannerImage}\n\n{ex}");
                 }
             }
-            else
-            {
-                Logger.Debug($"Home hero banner doesn't exist. {bannerImage}");
-            }
+
+            Logger.Debug("Home hero banner doesn't exist in Media/Images.");
         }
 
         private void LoadBanner()
         {
-            string bannerImage = Path.Combine(Path.GetDirectoryName(AssemblyLocation) ?? "", "Media", "Images", "banner_short_x150.png");
+            string bannerImage = Path.Combine(Path.GetDirectoryName(AssemblyLocation) ?? "", "Media", "Images", "sidebar_logo.png");
+
+            if (!File.Exists(bannerImage))
+            {
+                bannerImage = Path.Combine(Path.GetDirectoryName(AssemblyLocation) ?? "", "Media", "Images", "banner_short_x150.png");
+            }
 
             if (File.Exists(bannerImage))
             {

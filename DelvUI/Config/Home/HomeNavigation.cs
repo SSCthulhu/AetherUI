@@ -76,11 +76,6 @@ namespace DelvUI.Config.Home
                 return;
             }
 
-            if (FeatureRegistry.IsAdvancedSection(sectionName))
-            {
-                baseNode.SetAdvancedNavigationExpanded(true);
-            }
-
             baseNode.SelectedOptionName = sectionName;
             baseNode.RefreshSelectedNode();
 

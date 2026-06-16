@@ -10,9 +10,13 @@ using DelvUI.Config.Attributes;
 
 using DelvUI.Config.Home;
 
+using DelvUI.Config.Home.Widgets;
+
 using DelvUI.Config.Navigation;
 
 using DelvUI.Config.Presets;
+
+using DelvUI.Config.Windows;
 
 using DelvUI.Helpers;
 
@@ -75,14 +79,27 @@ namespace DelvUI.Config.Tree
             }
         }
 
-        private bool _advancedNavExpanded = true;
+        private const float SidebarWidth = 248f;
 
-        public void SetAdvancedNavigationExpanded(bool expanded)
-        {
-            _advancedNavExpanded = expanded;
-        }
+        private const float SidebarLogoPadding = 2f;
 
+        private const float SidebarLogoTopSpacing = 4f;
 
+        private const float SidebarLogoMaxHeight = 225f;
+
+        private const float SidebarLogoBottomSpacing = 12f;
+
+        private bool _featuresSectionExpanded = true;
+
+        private bool _advancedSectionExpanded = true;
+
+        private bool _profilesSectionExpanded = true;
+
+        private bool _playerTargetNavExpanded = true;
+
+        private bool _partyRaidNavExpanded = true;
+
+        private bool _individualFramesNavExpanded = true;
 
         private float _scale => ImGuiHelpers.GlobalScale;
 
@@ -436,37 +453,39 @@ namespace DelvUI.Config.Tree
 
                 {
 
-                    IDalamudTextureWrap? aetherUiBanner = Plugin.BannerTexture?.GetWrapOrDefault();
+                    ImGui.PushStyleVar(ImGuiStyleVar.ChildBorderSize, 0f);
 
-                    if (aetherUiBanner != null)
-
-                    {
-
-                        ImGui.SetCursorPos(new Vector2(15 + 150 * _scale / 2f - aetherUiBanner.Width / 2f, 5));
-
-                        ImGui.Image(aetherUiBanner.Handle, new Vector2(aetherUiBanner.Width, aetherUiBanner.Height));
-
-                    }
-
-
-
-                    ImGui.SetCursorPos(new Vector2(60 * _scale, 35));
-
-                    ImGui.Text($"v{Plugin.Version}");
-
-
-
-                    if (ImGui.BeginChild("left pane", new Vector2(150 * _scale, -10), true, ImGuiWindowFlags.NoScrollbar))
+                    if (ImGui.BeginChild("left pane", new Vector2(SidebarWidth * _scale, -10), false, ImGuiWindowFlags.NoScrollbar))
 
                     {
 
-                        didReset |= DrawNavigation(ref changed);
+                        ImGui.PushStyleColor(ImGuiCol.ChildBg, ImGui.ColorConvertFloat4ToU32(HomeUiStyle.PanelBg));
+
+                        DrawSidebarLogo();
+
+                        float navHeight = ImGui.GetContentRegionAvail().Y;
+
+                        if (navHeight > 0f && ImGui.BeginChild("left pane nav", new Vector2(0f, navHeight), false))
+
+                        {
+
+                            didReset |= DrawNavigation(ref changed);
+
+                            ImGui.EndChild();
+
+                        }
+
+
+
+                        ImGui.PopStyleColor();
 
                     }
 
 
 
                     ImGui.EndChild();
+
+                    ImGui.PopStyleVar();
 
                 }
 
@@ -590,6 +609,16 @@ namespace DelvUI.Config.Tree
 
 
 
+            if (ConfigurationManager.Instance.OverrideDalamudStyle)
+
+            {
+
+                ConfigWindowChrome.DrawSidebarDivider(SidebarWidth * _scale, alpha);
+
+            }
+
+
+
             PopStyles(popColors);
 
 
@@ -662,6 +691,80 @@ namespace DelvUI.Config.Tree
 
 
 
+        private void DrawSidebarLogo()
+
+        {
+
+            IDalamudTextureWrap? logo = Plugin.BannerTexture?.GetWrapOrDefault();
+
+            if (logo == null)
+
+            {
+
+                return;
+
+            }
+
+
+
+            ImGui.Dummy(new Vector2(0f, SidebarLogoTopSpacing * _scale));
+
+
+
+            float padding = SidebarLogoPadding * _scale;
+
+            float spacing = SidebarLogoBottomSpacing * _scale;
+
+            float availableWidth = ImGui.GetContentRegionAvail().X - padding * 2f;
+
+            if (availableWidth <= 0f)
+
+            {
+
+                return;
+
+            }
+
+
+
+            float maxHeight = SidebarLogoMaxHeight * _scale;
+
+            Vector2 displaySize = HomeBrandingImage.GetFitSize(availableWidth, maxHeight, logo.Width, logo.Height);
+
+            if (displaySize.X <= 0f || displaySize.Y <= 0f)
+
+            {
+
+                return;
+
+            }
+
+
+
+            HomeBrandingImage.DrawTexture(logo, displaySize, padding);
+
+
+
+            string version = $"v{Plugin.Version}";
+
+            Vector2 versionSize = ImGui.CalcTextSize(version);
+
+            ImGui.SetCursorPosX(padding + (availableWidth - versionSize.X) * 0.5f);
+
+            ImGui.PushStyleColor(ImGuiCol.Text, HomeUiStyle.TextMuted);
+
+            ImGui.Text(version);
+
+            ImGui.PopStyleColor();
+
+
+
+            ImGui.Dummy(new Vector2(0f, spacing));
+
+        }
+
+
+
         private bool DrawNavigation(ref bool changed)
 
         {
@@ -670,65 +773,409 @@ namespace DelvUI.Config.Tree
 
             RefreshSelectedNode();
 
+            SyncNavGroupExpansion();
 
-
-            if (DrawNavSelectable(NavigationConstants.Home, _homeNode.Selected))
-
+            if (SidebarNavItem.Draw(
+                "##navHome",
+                NavigationConstants.Home,
+                SidebarNavIcons.GetTopLevelIcon(NavigationConstants.Home),
+                _homeNode.Selected))
             {
-
                 SelectSection(_homeNode);
-
             }
 
-
+            SidebarNavItem.DrawCollapsibleSectionHeader(
+                "##navSectionFeatures",
+                "Features",
+                ref _featuresSectionExpanded,
+                FeatureNavGroups.IsFeaturesNavSection(SelectedOptionName));
 
             HomeFeatureSettingsConfig? homeSettings = GetConfigObject<HomeFeatureSettingsConfig>();
 
-            foreach (SectionNode selectionNode in _featureSections)
+            if (_featuresSectionExpanded)
+            {
+                didReset |= DrawFeatureNavigationGroups(homeSettings);
+            }
+
+            SidebarNavItem.DrawCollapsibleSectionHeader(
+                "##navSectionAdvanced",
+                "Advanced",
+                ref _advancedSectionExpanded,
+                FeatureRegistry.IsAdvancedSection(SelectedOptionName ?? string.Empty));
+
+            if (_advancedSectionExpanded)
+            {
+                didReset |= DrawAdvancedNavigation();
+            }
+
+            SidebarNavItem.DrawCollapsibleSectionHeader(
+                "##navSectionProfiles",
+                "Profiles",
+                ref _profilesSectionExpanded,
+                SelectedOptionName == NavigationConstants.ProfilesImport);
+
+            if (_profilesSectionExpanded)
+            {
+                if (SidebarNavItem.Draw(
+                    "##navProfilesImport",
+                    NavigationConstants.ProfilesImport,
+                    SidebarNavIcons.GetTopLevelIcon(NavigationConstants.ProfilesImport),
+                    _profilesImportNode.Selected))
+                {
+                    SelectSection(_profilesImportNode);
+                }
+            }
+
+
+
+            return didReset;
+
+        }
+
+
+
+        private void SyncNavGroupExpansion()
+
+        {
+
+            if (FeatureNavGroups.IsFeaturesNavSection(SelectedOptionName))
 
             {
 
-                if (homeSettings != null && !FeatureRegistry.IsFeatureSectionVisible(homeSettings, selectionNode.Name))
-
-                {
-
-                    continue;
-
-                }
-
-
-
-                if (DrawNavSelectable(selectionNode.Name, selectionNode.Selected))
-
-                {
-
-                    SelectSection(selectionNode);
-
-                }
-
-
-
-                DrawExportResetContextMenu(selectionNode, selectionNode.Name);
+                _featuresSectionExpanded = true;
 
             }
 
 
 
-            didReset |= DrawAdvancedNavigation();
-
-
-
-            if (DrawNavSelectable(NavigationConstants.ProfilesImport, _profilesImportNode.Selected))
+            if (FeatureRegistry.IsAdvancedSection(SelectedOptionName ?? string.Empty))
 
             {
 
-                SelectSection(_profilesImportNode);
+                _advancedSectionExpanded = true;
+
+            }
+
+
+
+            if (SelectedOptionName == NavigationConstants.ProfilesImport)
+
+            {
+
+                _profilesSectionExpanded = true;
+
+            }
+
+
+
+            if (FeatureNavGroups.IsPlayerTargetSection(SelectedOptionName))
+
+            {
+
+                _playerTargetNavExpanded = true;
+
+            }
+
+
+
+            if (FeatureNavGroups.IsIndividualFramesSection(SelectedOptionName))
+
+            {
+
+                _playerTargetNavExpanded = true;
+
+                _individualFramesNavExpanded = true;
+
+            }
+
+
+
+            if (FeatureNavGroups.IsPartyRaidSection(SelectedOptionName))
+
+            {
+
+                _partyRaidNavExpanded = true;
+
+            }
+
+        }
+
+
+
+        private bool DrawFeatureNavigationGroups(HomeFeatureSettingsConfig? homeSettings)
+
+        {
+
+            bool didReset = false;
+
+            float indent = 14 * _scale;
+
+
+
+            if (HasAnyVisibleSection(homeSettings, FeatureNavGroups.PlayerParameterOrbSection)
+
+                || HasAnyVisibleSection(homeSettings, FeatureNavGroups.IndividualFrameSections)
+
+                || HasAnyVisibleSection(homeSettings, FeatureNavGroups.PlayerTargetAfterFramesSections))
+
+            {
+
+                didReset |= DrawFeatureNavGroup(
+
+                    FeatureNavGroups.PlayerTarget,
+
+                    ref _playerTargetNavExpanded,
+
+                    FeatureNavGroups.IsPlayerTargetSection(SelectedOptionName),
+
+                    () =>
+
+                    {
+
+                        bool groupReset = false;
+
+                        groupReset |= DrawFeatureSectionNavItem(homeSettings, FeatureNavGroups.PlayerParameterOrbSection, indent);
+
+                        groupReset |= DrawIndividualFramesNavGroup(homeSettings, indent);
+
+
+
+                        foreach (string sectionName in FeatureNavGroups.PlayerTargetAfterFramesSections)
+
+                        {
+
+                            groupReset |= DrawFeatureSectionNavItem(homeSettings, sectionName, indent);
+
+                        }
+
+
+
+                        return groupReset;
+
+                    });
+
+            }
+
+
+
+            if (HasAnyVisibleSection(homeSettings, FeatureNavGroups.PartyRaidSections))
+
+            {
+
+                didReset |= DrawFeatureNavGroup(
+
+                    FeatureNavGroups.PartyRaid,
+
+                    ref _partyRaidNavExpanded,
+
+                    FeatureNavGroups.IsPartyRaidSection(SelectedOptionName),
+
+                    () =>
+
+                    {
+
+                        bool groupReset = false;
+
+                        foreach (string sectionName in FeatureNavGroups.PartyRaidSections)
+
+                        {
+
+                            groupReset |= DrawFeatureSectionNavItem(homeSettings, sectionName, indent);
+
+                        }
+
+
+
+                        return groupReset;
+
+                    });
+
+            }
+
+
+
+            foreach (string sectionName in FeatureNavGroups.UtilitySections)
+
+            {
+
+                didReset |= DrawFeatureSectionNavItem(homeSettings, sectionName, 0f);
 
             }
 
 
 
             return didReset;
+
+        }
+
+
+
+        private bool DrawIndividualFramesNavGroup(HomeFeatureSettingsConfig? homeSettings, float parentIndent)
+
+        {
+
+            if (!HasAnyVisibleSection(homeSettings, FeatureNavGroups.IndividualFrameSections))
+
+            {
+
+                return false;
+
+            }
+
+
+
+            bool didReset = false;
+
+            float nestedIndent = parentIndent + 14 * _scale;
+
+            SidebarNavItem.DrawGroupHeader(
+                "##navIndividualFrames",
+                FeatureNavGroups.IndividualFrames,
+                SidebarNavIcons.GetGroupIcon(FeatureNavGroups.IndividualFrames),
+                ref _individualFramesNavExpanded,
+                FeatureNavGroups.IsIndividualFramesSection(SelectedOptionName),
+                parentIndent);
+
+            if (_individualFramesNavExpanded)
+            {
+                foreach (string sectionName in FeatureNavGroups.IndividualFrameSections)
+                {
+                    didReset |= DrawFeatureSectionNavItem(homeSettings, sectionName, nestedIndent);
+                }
+            }
+
+            return didReset;
+        }
+
+
+
+        private bool DrawFeatureNavGroup(string label, ref bool expanded, bool childSelected, Func<bool> drawChildren)
+
+        {
+
+            bool didReset = false;
+
+            SidebarNavItem.DrawGroupHeader(
+                $"##navGroup_{label}",
+                label,
+                SidebarNavIcons.GetGroupIcon(label),
+                ref expanded,
+                childSelected);
+
+            if (expanded)
+            {
+                didReset |= drawChildren();
+            }
+
+            return didReset;
+        }
+
+
+
+        private bool DrawFeatureSectionNavItem(HomeFeatureSettingsConfig? homeSettings, string sectionName, float indent)
+
+        {
+
+            SectionNode? section = FindFeatureSection(sectionName);
+
+            if (section == null)
+
+            {
+
+                return false;
+
+            }
+
+
+
+            if (homeSettings != null && !FeatureRegistry.IsFeatureSectionVisible(homeSettings, sectionName))
+
+            {
+
+                return false;
+
+            }
+
+
+
+            bool didReset = false;
+
+            if (SidebarNavItem.Draw(
+                $"##navSection_{sectionName}",
+                SidebarNavLabels.GetDisplayLabel(sectionName),
+                SidebarNavIcons.GetSectionIcon(sectionName),
+                section.Selected,
+                indent))
+            {
+                SelectSection(section);
+            }
+
+
+
+            DrawExportResetContextMenu(section, sectionName);
+
+            return didReset;
+        }
+
+
+
+        private SectionNode? FindFeatureSection(string sectionName)
+
+        {
+
+            foreach (SectionNode node in _featureSections)
+
+            {
+
+                if (node.Name == sectionName)
+
+                {
+
+                    return node;
+
+                }
+
+            }
+
+
+
+            return null;
+
+        }
+
+
+
+        private static bool HasAnyVisibleSection(HomeFeatureSettingsConfig? homeSettings, string sectionName)
+
+        {
+
+            return homeSettings == null || FeatureRegistry.IsFeatureSectionVisible(homeSettings, sectionName);
+
+        }
+
+
+
+        private static bool HasAnyVisibleSection(HomeFeatureSettingsConfig? homeSettings, params string[] sectionNames)
+
+        {
+
+            foreach (string sectionName in sectionNames)
+
+            {
+
+                if (homeSettings == null || FeatureRegistry.IsFeatureSectionVisible(homeSettings, sectionName))
+
+                {
+
+                    return true;
+
+                }
+
+            }
+
+
+
+            return false;
 
         }
 
@@ -740,67 +1187,30 @@ namespace DelvUI.Config.Tree
 
             bool didReset = false;
 
-            bool advancedChildSelected = _advancedSections.Any(s => s.Name == SelectedOptionName);
-
-            string advancedLabel = (_advancedNavExpanded ? "v " : "> ") + NavigationConstants.AdvancedOptions;
 
 
-
-            if (ImGui.Selectable(advancedLabel, advancedChildSelected && !_advancedNavExpanded))
+            foreach (SectionNode selectionNode in _advancedSections)
 
             {
 
-                _advancedNavExpanded = !_advancedNavExpanded;
-
-            }
-
-
-
-            if (_advancedNavExpanded)
-
-            {
-
-                float indent = 14 * _scale;
-
-
-
-                foreach (SectionNode selectionNode in _advancedSections)
-
+                if (SidebarNavItem.Draw(
+                    $"##navAdvanced_{selectionNode.Name}",
+                    SidebarNavLabels.GetDisplayLabel(selectionNode.Name),
+                    SidebarNavIcons.GetSectionIcon(selectionNode.Name),
+                    selectionNode.Selected))
                 {
-
-                    ImGui.SetCursorPosX(ImGui.GetCursorPosX() + indent);
-
-
-
-                    if (DrawNavSelectable(selectionNode.Name, selectionNode.Selected))
-
-                    {
-
-                        SelectSection(selectionNode);
-
-                    }
-
-
-
-                    DrawExportResetContextMenu(selectionNode, selectionNode.Name);
-
+                    SelectSection(selectionNode);
                 }
+
+
+
+                DrawExportResetContextMenu(selectionNode, selectionNode.Name);
 
             }
 
 
 
             return didReset;
-
-        }
-
-
-
-        private static bool DrawNavSelectable(string label, bool selected)
-
-        {
-
-            return ImGui.Selectable(label, selected);
 
         }
 

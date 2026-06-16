@@ -2,8 +2,10 @@ using Dalamud.Interface;
 using Dalamud.Interface.ImGuiFileDialog;
 using DelvUI.Config;
 using DelvUI.Config.Attributes;
+using DelvUI.Config.Home.Widgets;
 using DelvUI.Helpers;
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface.Utility;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -231,9 +233,15 @@ namespace DelvUI.Interface.GeneralElements
                 .Key;
         }
 
-        public bool DrawApplyGlobalFontsButton(ref bool changed, bool centered = false)
+        public bool DrawApplyGlobalFontsButton(ref bool changed, bool centered = false, bool homeAccentStyle = false)
         {
             const string label = "Apply Global Fonts";
+
+            if (homeAccentStyle)
+            {
+                return DrawHomeAccentApplyButton(label, ref changed, centered);
+            }
+
             Vector2 buttonSize = ImGui.CalcTextSize(label) + ImGui.GetStyle().FramePadding * 2f;
 
             if (centered)
@@ -247,6 +255,65 @@ namespace DelvUI.Interface.GeneralElements
                 _applyGlobalFontsRequested = true;
             }
 
+            return ProcessApplyGlobalFontsModal(ref changed);
+        }
+
+        private bool DrawHomeAccentApplyButton(string label, ref bool changed, bool centered)
+        {
+            float scale = ImGuiHelpers.GlobalScale;
+            float availWidth = ImGui.GetContentRegionAvail().X;
+            float buttonWidth = availWidth * 0.82f;
+            float buttonHeight = ImGui.GetFrameHeight() + 10f * scale;
+            Vector2 buttonSize = new Vector2(buttonWidth, buttonHeight);
+
+            if (centered)
+            {
+                float offset = Math.Max(0f, (availWidth - buttonWidth) * 0.5f);
+                ImGui.SetCursorPosX(ImGui.GetCursorPosX() + offset);
+            }
+
+            Vector2 startPos = ImGui.GetCursorPos();
+            Vector2 cursor = ImGui.GetCursorScreenPos();
+            bool isHovered = ImGui.IsMouseHoveringRect(cursor, cursor + buttonSize);
+            ImDrawListPtr drawList = ImGui.GetWindowDrawList();
+
+            Vector4 bg = isHovered
+                ? new Vector4(HomeUiStyle.Accent.X, HomeUiStyle.Accent.Y, HomeUiStyle.Accent.Z, 0.1f)
+                : HomeUiStyle.PanelBg;
+            Vector4 border = isHovered ? HomeUiStyle.Accent : HomeUiStyle.AccentGlow;
+            float borderThickness = isHovered ? 2.5f : 2f;
+            Vector4 textColor = isHovered ? Vector4.One : HomeUiStyle.Accent;
+            const float cornerRadius = 8f;
+
+            drawList.AddRectFilled(cursor, cursor + buttonSize, ImGui.ColorConvertFloat4ToU32(bg), cornerRadius);
+            drawList.AddRect(
+                cursor,
+                cursor + buttonSize,
+                ImGui.ColorConvertFloat4ToU32(border),
+                cornerRadius,
+                ImDrawFlags.RoundCornersAll,
+                borderThickness);
+
+            Vector2 textSize = ImGui.CalcTextSize(label);
+            Vector2 textPos = new Vector2(
+                cursor.X + (buttonSize.X - textSize.X) * 0.5f,
+                cursor.Y + (buttonSize.Y - textSize.Y) * 0.5f);
+            drawList.AddText(textPos, ImGui.ColorConvertFloat4ToU32(textColor), label);
+
+            ImGui.SetCursorPos(startPos);
+            ImGui.InvisibleButton("##homeApplyGlobalFonts", buttonSize);
+            if (ImGui.IsItemClicked())
+            {
+                _applyGlobalFontsRequested = true;
+            }
+
+            ImGui.SetCursorPos(startPos + new Vector2(0f, buttonSize.Y));
+
+            return ProcessApplyGlobalFontsModal(ref changed);
+        }
+
+        private bool ProcessApplyGlobalFontsModal(ref bool changed)
+        {
             if (!_applyGlobalFontsRequested)
             {
                 return false;

@@ -39,7 +39,7 @@ namespace DelvUI.Config.Home
 
             return fontRow + sectionSpacing
                 + fontRow + sectionSpacing
-                + frame + itemSpacing;
+                + frame + 10f * scale + itemSpacing;
         }
 
         public static float GetHomePanelHeight()
@@ -99,7 +99,7 @@ namespace DelvUI.Config.Home
                 ImGui.Dummy(new Vector2(0f, sectionSpacing));
                 comboChanged |= DrawCompactLabeledCombo("GLOBAL NUMERIC FONT", "##homeGlobalNumericFont", ref globalNumericFontIndex, selectableFontStyles);
                 ImGui.Dummy(new Vector2(0f, sectionSpacing));
-                applyChanged = fontsConfig.DrawApplyGlobalFontsButton(ref changed, centered: true);
+                applyChanged = fontsConfig.DrawApplyGlobalFontsButton(ref changed, centered: true, homeAccentStyle: true);
             }
             else
             {
@@ -175,10 +175,35 @@ namespace DelvUI.Config.Home
 
             ImGui.SetCursorPosX(startX);
             ImGui.PushItemWidth(comboWidth);
+            PushHomeComboChrome();
             bool changed = ImGui.Combo(id, ref index, options, 12);
+            PopHomeComboChrome();
             ImGui.PopItemWidth();
 
             return changed;
+        }
+
+        private static void PushHomeComboChrome()
+        {
+            Vector4 transparent = Vector4.Zero;
+            float scale = ImGuiHelpers.GlobalScale;
+            Vector2 framePadding = ImGui.GetStyle().FramePadding;
+            ImGui.PushStyleColor(ImGuiCol.FrameBg, transparent);
+            ImGui.PushStyleColor(ImGuiCol.FrameBgHovered, transparent);
+            ImGui.PushStyleColor(ImGuiCol.FrameBgActive, transparent);
+            ImGui.PushStyleColor(ImGuiCol.Button, transparent);
+            ImGui.PushStyleColor(ImGuiCol.ButtonHovered, transparent);
+            ImGui.PushStyleColor(ImGuiCol.ButtonActive, transparent);
+            ImGui.PushStyleColor(ImGuiCol.Border, HomeUiStyle.PanelBorder);
+            ImGui.PushStyleVar(ImGuiStyleVar.FrameBorderSize, 1f);
+            ImGui.PushStyleVar(ImGuiStyleVar.FrameRounding, 6f);
+            ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, new Vector2(10f * scale, framePadding.Y));
+        }
+
+        private static void PopHomeComboChrome()
+        {
+            ImGui.PopStyleVar(3);
+            ImGui.PopStyleColor(7);
         }
     }
 }

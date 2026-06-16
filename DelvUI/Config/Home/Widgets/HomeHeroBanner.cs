@@ -2,6 +2,7 @@ using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Textures.TextureWraps;
 using Dalamud.Interface.Utility;
 using DelvUI;
+using System;
 using System.Numerics;
 
 namespace DelvUI.Config.Home.Widgets
@@ -9,78 +10,101 @@ namespace DelvUI.Config.Home.Widgets
     public static class HomeHeroBanner
     {
         private const float FallbackHeight = 72f;
-        private const float TopInset = 10f;
-        private const float CornerRadius = 6f;
-        private const float BorderThickness = 1f;
+        private const float TopInset = 4f;
+        private const float BottomSpacing = 6f;
+        private const float WidthScale = 1.04f;
+        private const float ContentZoom = 1.0f;
+
+        private const int BannerTextureWidth = 3840;
+        private const int BannerTextureHeight = 480;
+
+        // Opaque art bounds in home_hero_banner.png — updated after 2x export + sharpen.
+        private const float ContentU0 = 1014f / 3840f;
+        private const float ContentU1 = 2828f / 3840f;
+        private const float ContentV0 = 21f / 480f;
+        private const float ContentV1 = 458f / 480f;
 
         public static void Draw(float width)
         {
-            ImGui.Dummy(new Vector2(0f, TopInset * ImGuiHelpers.GlobalScale));
+            Plugin.ReloadHomeHeroBannerIfChanged();
 
-            Vector2 cursor = ImGui.GetCursorScreenPos();
-            float height = GetBannerHeight(width);
-            Vector2 size = new Vector2(width, height);
-            Vector2 max = cursor + size;
-            ImDrawListPtr drawList = ImGui.GetWindowDrawList();
+            float scale = ImGuiHelpers.GlobalScale;
+            ImGui.Dummy(new Vector2(0f, TopInset * scale));
+
+            float targetWidth = Math.Max(0f, width);
+            BrandingImageLayout layout = GetBannerLayout(targetWidth, scale);
+
+            if (layout.Size.X <= 0f || layout.Size.Y <= 0f)
+            {
+                DrawFallback(targetWidth, FallbackHeight * scale);
+                ImGui.Dummy(new Vector2(0f, BottomSpacing * scale));
+                return;
+            }
 
             IDalamudTextureWrap? texture = Plugin.HomeHeroBannerTexture?.GetWrapOrDefault();
             if (texture != null)
             {
-                drawList.AddImageRounded(
-                    texture.Handle,
-                    cursor,
-                    max,
-                    Vector2.Zero,
-                    Vector2.One,
-                    ImGui.ColorConvertFloat4ToU32(Vector4.One),
-                    CornerRadius);
+                HomeBrandingImage.DrawTextureFullWidth(texture, layout.Size, layout.Uv0, layout.Uv1);
             }
             else
             {
-                DrawFallback(drawList, cursor, size);
+                DrawFallback(layout.Size.X, layout.Size.Y);
             }
 
-            drawList.AddRect(
-                cursor,
-                max,
-                ImGui.ColorConvertFloat4ToU32(HomeUiStyle.PanelBorder),
-                CornerRadius,
-                ImDrawFlags.RoundCornersAll,
-                BorderThickness);
-
-            ImGui.Dummy(size);
-            ImGui.SetCursorScreenPos(cursor + new Vector2(0f, height + 6f * ImGuiHelpers.GlobalScale));
+            ImGui.Dummy(new Vector2(0f, BottomSpacing * scale));
         }
 
         public static float GetBannerHeight(float width)
         {
+            float scale = ImGuiHelpers.GlobalScale;
+            BrandingImageLayout layout = GetBannerLayout(Math.Max(0f, width), scale);
+            float bannerHeight = layout.Size.Y > 0f ? layout.Size.Y : FallbackHeight * scale;
+            return TopInset * scale + bannerHeight + BottomSpacing * scale;
+        }
+
+        private static BrandingImageLayout GetBannerLayout(float targetWidth, float scale)
+        {
             IDalamudTextureWrap? texture = Plugin.HomeHeroBannerTexture?.GetWrapOrDefault();
             if (texture == null || texture.Width <= 0)
             {
-                return FallbackHeight * ImGuiHelpers.GlobalScale;
+                return new BrandingImageLayout(
+                    new Vector2(targetWidth * WidthScale, FallbackHeight * scale),
+                    Vector2.Zero,
+                    Vector2.One);
             }
 
-            return width * ((float)texture.Height / texture.Width);
+            float displayWidth = targetWidth * WidthScale;
+            float displayHeight = displayWidth * (texture.Height / (float)texture.Width);
+            (Vector2 uv0, Vector2 uv1) = GetContentUv(texture);
+
+            return new BrandingImageLayout(
+                new Vector2(displayWidth, displayHeight),
+                uv0,
+                uv1);
         }
 
-        private static void DrawFallback(ImDrawListPtr drawList, Vector2 cursor, Vector2 size)
+        private static (Vector2 Uv0, Vector2 Uv1) GetContentUv(IDalamudTextureWrap texture)
         {
-            Vector2 max = cursor + size;
-            uint topColor = ImGui.ColorConvertFloat4ToU32(new Vector4(0.02f, 0.08f, 0.14f, 0.95f));
-            uint bottomColor = ImGui.ColorConvertFloat4ToU32(new Vector4(0.04f, 0.04f, 0.04f, 0.15f));
-            drawList.AddRectFilledMultiColor(cursor, max, topColor, topColor, bottomColor, bottomColor);
+            if (texture.Width != BannerTextureWidth || texture.Height != BannerTextureHeight)
+            {
+                return (Vector2.Zero, Vector2.One);
+            }
 
-            ImGui.SetCursorScreenPos(cursor + new Vector2(20f, 14f));
-            ImGui.PushStyleColor(ImGuiCol.Text, HomeUiStyle.Accent);
-            ImGui.SetWindowFontScale(1.25f);
-            ImGui.Text("WELCOME TO AETHER UI");
-            ImGui.SetWindowFontScale(1f);
-            ImGui.PopStyleColor();
+            float uMid = (ContentU0 + ContentU1) * 0.5f;
+            float vMid = (ContentV0 + ContentV1) * 0.5f;
+            float halfU = (ContentU1 - ContentU0) * 0.5f / ContentZoom;
+            float halfV = (ContentV1 - ContentV0) * 0.5f / ContentZoom;
 
-            ImGui.SetCursorScreenPos(cursor + new Vector2(20f, 40f));
-            ImGui.PushStyleColor(ImGuiCol.Text, HomeUiStyle.Gold);
-            ImGui.Text("CONFIGURE YOUR HUD IN MINUTES");
-            ImGui.PopStyleColor();
+            return (
+                new Vector2(uMid - halfU, vMid - halfV),
+                new Vector2(uMid + halfU, vMid + halfV));
+        }
+
+        private static void DrawFallback(float width, float height)
+        {
+            Vector2 cursor = ImGui.GetCursorScreenPos();
+            Vector2 size = new Vector2(width, height);
+            ImGui.Dummy(size);
         }
     }
 }
