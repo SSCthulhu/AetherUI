@@ -183,6 +183,10 @@ namespace DelvUI.Config.Home
                 return false;
             }
 
+            bool synced = FeatureRegistry.SyncHomeSettingsFromConfigs(
+                ConfigurationManager.Instance.ConfigBaseNode,
+                settings);
+
             HashSet<FeatureId> changedFeatures = new();
             float scale = ImGuiHelpers.GlobalScale;
             float rowHeight = 48f * scale;
@@ -205,7 +209,7 @@ namespace DelvUI.Config.Home
                     changedFeatures);
             }
 
-            return changedFeatures.Count > 0;
+            return synced || changedFeatures.Count > 0;
         }
 
         private static void DrawPlayerTargetSection(

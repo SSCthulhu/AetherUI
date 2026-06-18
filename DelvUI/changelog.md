@@ -1,3 +1,15 @@
+# 2.8.2.0
+- Added per-preset native HUD layout attachments on the Home preset tabs (gear icon + layout number badge, Custom excluded).
+- Preset HUD layout bindings persist across preset apply and are saved independently from shipped `.delvui` preset data.
+- Added dedicated shipped presets for Minimal, MMO Modern, and Raid Focused (each with its own `.delvui` file instead of shared `Default.delvui`).
+- Minimal preset is exported from maintainer live config (`scripts/export-minimal-preset.ps1`) and includes axis-ffxiv global fonts, nameplates, party frames, enemy list, job bars, minimap, and misc settings as configured.
+- Minimal preset no longer applies post-import layout overrides; the shipped `.delvui` file is the source of truth.
+- MMO Modern and Raid Focused presets disable the Player Orb in favor of full unit frames.
+- Raid Focused preset enables party cooldowns, enemy list, and raid utilities (Pull Timer, Limit Break) with action camera off.
+- Updated Action Combat preset from maintainer live config; post-import overrides removed so the shipped `.delvui` is the source of truth.
+- Fixed Home Buffs & Debuffs pill showing off when only one buff/debuff list was enabled.
+- Added generalized `scripts/export-preset.ps1` and `scripts/build-presets-from-base.ps1` for preset export and generation.
+
 # 2.8.1.0
 - Added Home-first configuration UX with quick feature toggles, HUD presets, and global typography controls.
 - Fixed Action Combat preset applying stale duplicate configs that disabled Action Camera soft targeting.

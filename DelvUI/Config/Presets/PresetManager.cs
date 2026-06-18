@@ -3,16 +3,15 @@ using DelvUI.Config.Home;
 using DelvUI.Config.Home.Widgets;
 using DelvUI.Config.Navigation;
 using DelvUI.Helpers;
-using DelvUI.Interface.ActionCamera;
-using DelvUI.Interface.EnemyList;
 using DelvUI.Interface.GeneralElements;
 using DelvUI.Interface.Jobs;
+using DelvUI.Interface.EnemyList;
 using DelvUI.Interface.Party;
-using DelvUI.Interface.PartyCooldowns;
 using DelvUI.Interface.StatusEffects;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Utility;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Numerics;
 
@@ -66,6 +65,9 @@ namespace DelvUI.Config.Presets
                 return;
             }
 
+            PresetHudLayoutSettingsConfig? hudLayoutSettings =
+                ConfigurationManager.Instance.GetConfigObject<PresetHudLayoutSettingsConfig>();
+
             if (!_pendingInitialized)
             {
                 SyncPendingFromActive(settings);
@@ -94,6 +96,7 @@ namespace DelvUI.Config.Presets
                     ImGui.SetCursorPos(new Vector2(ImGui.GetCursorPosX() + rowOffsetX, ImGui.GetCursorPosY() + rowOffsetY));
 
                     ImGui.BeginGroup();
+                    bool hudLayoutSettingsChanged = false;
                     for (int i = 0; i < tabCount; i++)
                     {
                         if (i > 0)
@@ -101,7 +104,30 @@ namespace DelvUI.Config.Presets
                             ImGui.SameLine(0f, tabSpacing);
                         }
 
-                        if (!HomePresetTabBar.DrawTab(i, _pendingTabIndex, tabWidth, tabHeight))
+                        bool attachHudEnabled = false;
+                        int hudLayout = 0;
+                        if (hudLayoutSettings != null && i < 4)
+                        {
+                            PresetHudLayoutBinding binding = hudLayoutSettings.GetBinding((AetherPreset)i);
+                            attachHudEnabled = binding.AttachHudEnabled;
+                            hudLayout = binding.HudLayout;
+                        }
+
+                        PresetTabInteraction interaction = HomePresetTabBar.DrawTab(
+                            i,
+                            _pendingTabIndex,
+                            tabWidth,
+                            tabHeight,
+                            attachHudEnabled,
+                            hudLayout);
+
+                        if (interaction == PresetTabInteraction.GearClicked)
+                        {
+                            PresetHudLayoutPopup.Open((AetherPreset)i);
+                            continue;
+                        }
+
+                        if (interaction != PresetTabInteraction.TabClicked)
                         {
                             continue;
                         }
@@ -117,6 +143,11 @@ namespace DelvUI.Config.Presets
                     }
 
                     ImGui.EndGroup();
+                    PresetHudLayoutPopup.Draw(ref hudLayoutSettingsChanged);
+                    if (hudLayoutSettingsChanged)
+                    {
+                        ConfigurationManager.Instance.ForceNeedsSave();
+                    }
                 }
 
                 ImGui.EndChild();
@@ -140,7 +171,7 @@ namespace DelvUI.Config.Presets
                     "Your saved profiles will not be changed."
                 };
 
-                var (didConfirm, didClose) = ImGuiHelper.DrawConfirmationModal($"Apply {presetName}?", lines);
+                var (didConfirm, didClosed) = ImGuiHelper.DrawConfirmationModal($"Apply {presetName}?", lines);
 
                 if (didConfirm)
                 {
@@ -154,7 +185,7 @@ namespace DelvUI.Config.Presets
                     }
                 }
 
-                if (didConfirm || didClose)
+                if (didConfirm || didClosed)
                 {
                     _confirmRequested = false;
                     _confirmTabIndex = -1;
@@ -190,16 +221,16 @@ namespace DelvUI.Config.Presets
                 switch (preset)
                 {
                     case AetherPreset.Minimal:
-                        ApplyMinimalAdjustments();
+                        ApplyMinimalHudLayout();
+                        ApplyMinimalMiscSettings();
+                        ApplyMinimalJobBarPositions();
+                        ApplyMinimalBuffDebuffSettings();
                         break;
                     case AetherPreset.MmoModern:
-                        ApplyMmoModernAdjustments();
                         break;
                     case AetherPreset.RaidFocused:
-                        ApplyRaidFocusedAdjustments();
                         break;
                     case AetherPreset.ActionCombat:
-                        ApplyActionCombatHomeDefaults();
                         break;
                 }
 
@@ -207,11 +238,25 @@ namespace DelvUI.Config.Presets
                 if (settings != null)
                 {
                     FeatureRegistry.SyncHomeSettingsFromConfigs(ConfigurationManager.Instance.ConfigBaseNode, settings);
+                    ApplyPresetHomePillOverrides(preset, settings);
+
                     settings.ActivePreset = (ActivePresetSelection)preset;
                     _pendingTabIndex = (int)preset;
                 }
 
+                // Preset import replaces FontsConfig; rebuild handles so FontID indices match the new registry.
+                FontsManager.Instance.BuildFonts();
+
                 ConfigurationManager.Instance.SaveConfigurations(forced: true, saveProfile: false);
+
+                PresetHudLayoutSettingsConfig? hudLayoutSettings =
+                    ConfigurationManager.Instance.GetConfigObject<PresetHudLayoutSettingsConfig>();
+                if (hudLayoutSettings != null)
+                {
+                    PresetHudLayoutBinding binding = hudLayoutSettings.GetBinding(preset);
+                    NativeHudLayoutHelper.ApplyAttachedHudLayout(binding.AttachHudEnabled, binding.HudLayout);
+                }
+
                 return true;
             }
             finally
@@ -224,6 +269,9 @@ namespace DelvUI.Config.Presets
         {
             string fileName = preset switch
             {
+                AetherPreset.Minimal => "Minimal.delvui",
+                AetherPreset.MmoModern => "MmoModern.delvui",
+                AetherPreset.RaidFocused => "RaidFocused.delvui",
                 AetherPreset.ActionCombat => "ActionCombat.delvui",
                 _ => "Default.delvui"
             };
@@ -242,161 +290,207 @@ namespace DelvUI.Config.Presets
             return File.ReadAllText(path);
         }
 
-        private static void ApplyMinimalAdjustments()
+        private static void ApplyMinimalHudLayout()
         {
-            SetFeatureEnabled(false,
-                FeatureId.OtherElements,
-                FeatureId.Nameplates,
-                FeatureId.PartyFrames,
-                FeatureId.PartyCooldowns,
-                FeatureId.EnemyList,
-                FeatureId.JobSpecificBars,
-                FeatureId.Minimap,
-                FeatureId.ActionCamera,
-                FeatureId.BuffsAndDebuffs);
-
-            SetFeatureEnabled(true, FeatureId.PlayerParameterOrb);
-
-            HomeFeatureSettingsConfig? settings = ConfigurationManager.Instance.GetConfigObject<HomeFeatureSettingsConfig>();
-            if (settings != null)
+            PlayerParameterOrbConfig? orb =
+                ConfigurationManager.Instance.GetConfigObject<PlayerParameterOrbConfig>();
+            if (orb != null)
             {
-                FeatureRegistry.SetIndividualFramesMaster(settings, true);
-                FeatureRegistry.SetFeatureEnabled(settings, FeatureId.UnitFrames, true);
-                FeatureRegistry.SetFeatureEnabled(settings, FeatureId.ManaBars, true);
-                FeatureRegistry.SetFeatureEnabled(settings, FeatureId.CastBars, true);
-                FeatureRegistry.SetFeatureEnabled(settings, FeatureId.BuffsAndDebuffs, false);
-                FeatureRegistry.ApplyHomeSettingsToConfigs(ConfigurationManager.Instance.ConfigBaseNode, settings);
+                orb.Position = new Vector2(-730f, 564f);
             }
 
-            DisableConfigs(
-                typeof(TargetUnitFrameConfig),
-                typeof(TargetOfTargetUnitFrameConfig),
-                typeof(FocusTargetUnitFrameConfig),
-                typeof(TargetPrimaryResourceConfig),
-                typeof(TargetOfTargetPrimaryResourceConfig),
-                typeof(FocusTargetPrimaryResourceConfig),
-                typeof(TargetCastbarConfig),
-                typeof(TargetOfTargetCastbarConfig),
-                typeof(FocusTargetCastbarConfig));
-        }
-
-        private static void ApplyMmoModernAdjustments()
-        {
-            SetFeatureEnabled(true,
-                FeatureId.PlayerParameterOrb,
-                FeatureId.UnitFrames,
-                FeatureId.ManaBars,
-                FeatureId.CastBars,
-                FeatureId.BuffsAndDebuffs,
-                FeatureId.Nameplates,
-                FeatureId.PartyFrames,
-                FeatureId.Minimap);
-
-            SetFeatureEnabled(false,
-                FeatureId.PartyCooldowns,
-                FeatureId.EnemyList,
-                FeatureId.ActionCamera);
-
-            SetFeatureEnabled(true, FeatureId.JobSpecificBars);
-            SetFeatureEnabled(false, FeatureId.OtherElements);
-
-            SyncHomeFromAppliedFeatures();
-        }
-
-
-        private static void ApplyActionCombatHomeDefaults()
-        {
-            EnableConfigs(typeof(ActionCameraConfig));
-
-            ActionCameraConfig? actionCameraConfig =
-                ConfigurationManager.Instance.GetConfigObject<ActionCameraConfig>();
-            if (actionCameraConfig != null)
+            MinimapConfig? minimap = ConfigurationManager.Instance.GetConfigObject<MinimapConfig>();
+            if (minimap != null)
             {
-                actionCameraConfig.EnableSoftTargetSuggestion = true;
+                minimap.Position = new Vector2(729.5f, 563.5f);
             }
 
-            PartyFramesConfig? partyFramesConfig =
+            PartyFramesConfig? partyFrames =
                 ConfigurationManager.Instance.GetConfigObject<PartyFramesConfig>();
-            if (partyFramesConfig != null)
+            if (partyFrames != null)
             {
-                partyFramesConfig.Enabled = true;
+                partyFrames.Position = new Vector2(-1230f, 375f);
+            }
+
+            EnemyListConfig? enemyList =
+                ConfigurationManager.Instance.GetConfigObject<EnemyListConfig>();
+            if (enemyList != null)
+            {
+                enemyList.Position = new Vector2(1005f, 395f);
             }
         }
 
-        private static void ApplyRaidFocusedAdjustments()
+        private static void ApplyMinimalMiscSettings()
         {
-            SetFeatureEnabled(true,
-                FeatureId.PlayerParameterOrb,
-                FeatureId.UnitFrames,
-                FeatureId.ManaBars,
-                FeatureId.CastBars,
-                FeatureId.BuffsAndDebuffs,
-                FeatureId.Nameplates,
-                FeatureId.PartyFrames,
-                FeatureId.PartyCooldowns,
-                FeatureId.EnemyList,
-                FeatureId.JobSpecificBars,
-                FeatureId.Minimap);
-
-            SetFeatureEnabled(false,
-                FeatureId.OtherElements,
-                FeatureId.ActionCamera);
-
-            SyncHomeFromAppliedFeatures();
+            HUDOptionsConfig? hudOptions = ConfigurationManager.Instance.GetConfigObject<HUDOptionsConfig>();
+            if (hudOptions != null)
+            {
+                hudOptions.HideDefaultJobGauges = true;
+            }
         }
 
-        private static void SyncHomeFromAppliedFeatures()
+        private static readonly Type[] MinimalJobBarConfigTypes =
         {
-            HomeFeatureSettingsConfig? settings = ConfigurationManager.Instance.GetConfigObject<HomeFeatureSettingsConfig>();
-            if (settings == null)
-            {
-                return;
-            }
+            typeof(PaladinConfig),
+            typeof(WarriorConfig),
+            typeof(DarkKnightConfig),
+            typeof(GunbreakerConfig),
+            typeof(WhiteMageConfig),
+            typeof(ScholarConfig),
+            typeof(AstrologianConfig),
+            typeof(SageConfig),
+            typeof(MonkConfig),
+            typeof(DragoonConfig),
+            typeof(NinjaConfig),
+            typeof(SamuraiConfig),
+            typeof(ReaperConfig),
+            typeof(ViperConfig),
+            typeof(BardConfig),
+            typeof(MachinistConfig),
+            typeof(DancerConfig),
+            typeof(BlackMageConfig),
+            typeof(SummonerConfig),
+            typeof(RedMageConfig),
+            typeof(BlueMageConfig),
+            typeof(PictomancerConfig),
+        };
 
-            settings.IndividualFramesMaster = true;
-            settings.UnitFrames = true;
-            settings.ManaBars = true;
-            settings.CastBars = true;
-            FeatureRegistry.ApplyHomeSettingsToConfigs(ConfigurationManager.Instance.ConfigBaseNode, settings);
-        }
-
-        private static void SetFeatureEnabled(bool enabled, params FeatureId[] features)
+        private static void ApplyMinimalJobBarPositions()
         {
-            HomeFeatureSettingsConfig? settings = ConfigurationManager.Instance.GetConfigObject<HomeFeatureSettingsConfig>();
-            if (settings == null)
-            {
-                return;
-            }
-
-            foreach (FeatureId feature in features)
-            {
-                FeatureRegistry.SetFeatureEnabled(settings, feature, enabled);
-            }
-
-            FeatureRegistry.ApplyHomeSettingsToConfigs(ConfigurationManager.Instance.ConfigBaseNode, settings);
-        }
-
-        private static void DisableConfigs(params Type[] types)
-        {
-            foreach (Type type in types)
+            foreach (Type type in MinimalJobBarConfigTypes)
             {
                 PluginConfigObject? config = ConfigurationManager.Instance.GetConfigObjectForType(type);
-                if (config != null && config.Disableable)
+                if (config is JobConfig jobConfig)
                 {
-                    config.Enabled = false;
+                    jobConfig.Position = new Vector2(0f, 499.5f);
                 }
             }
         }
 
-        private static void EnableConfigs(params Type[] types)
+        private static void ApplyMinimalBuffDebuffSettings()
         {
-            foreach (Type type in types)
+            SetStatusEffectsList<PlayerBuffsListConfig>(enabled: true, x: -450f, y: 500f);
+            SetStatusEffectsList<PlayerDebuffsListConfig>(enabled: true, x: 450f, y: 500f);
+
+            SetStatusEffectsList<TargetBuffsListConfig>(enabled: false);
+            SetStatusEffectsList<TargetDebuffsListConfig>(enabled: false);
+            SetStatusEffectsList<FocusTargetBuffsListConfig>(enabled: false);
+            SetStatusEffectsList<FocusTargetDebuffsListConfig>(enabled: false);
+            SetStatusEffectsList<CustomEffectsListConfig>(enabled: false);
+        }
+
+        private static void SetStatusEffectsList<T>(bool enabled, float x = 0f, float y = 0f)
+            where T : StatusEffectsListConfig
+        {
+            T? config = ConfigurationManager.Instance.GetConfigObject<T>();
+            if (config == null)
             {
-                PluginConfigObject? config = ConfigurationManager.Instance.GetConfigObjectForType(type);
-                if (config != null && config.Disableable)
-                {
-                    config.Enabled = true;
-                }
+                return;
+            }
+
+            if (config.Disableable)
+            {
+                config.Enabled = enabled;
+            }
+
+            if (enabled)
+            {
+                config.Position = new Vector2(x, y);
+            }
+        }
+
+        private static void ApplyPresetHomePillOverrides(AetherPreset preset, HomeFeatureSettingsConfig settings)
+        {
+            switch (preset)
+            {
+                case AetherPreset.Minimal:
+                    // Shipped Minimal.delvui is the source of truth; pills mirror maintainer Home toggles only.
+                    settings.PlayerParameterOrb = true;
+                    settings.IndividualFramesMaster = false;
+                    settings.UnitFrames = false;
+                    settings.ManaBars = false;
+                    settings.CastBars = false;
+                    settings.BuffsAndDebuffs = true;
+                    settings.OtherElements = false;
+                    settings.ExperienceBar = false;
+                    settings.GcdIndicator = false;
+                    settings.PullTimer = false;
+                    settings.LimitBreak = false;
+                    settings.MpTicker = false;
+                    settings.Nameplates = true;
+                    settings.PartyFrames = true;
+                    settings.PartyCooldowns = false;
+                    settings.EnemyList = true;
+                    settings.JobSpecificBars = true;
+                    settings.Minimap = true;
+                    settings.ActionCamera = false;
+                    break;
+                case AetherPreset.MmoModern:
+                    // Shipped MmoModern.delvui is the source of truth; pills mirror maintainer Home toggles only.
+                    settings.PlayerParameterOrb = false;
+                    settings.IndividualFramesMaster = true;
+                    settings.UnitFrames = true;
+                    settings.ManaBars = true;
+                    settings.CastBars = true;
+                    settings.BuffsAndDebuffs = true;
+                    settings.OtherElements = true;
+                    settings.ExperienceBar = false;
+                    settings.GcdIndicator = false;
+                    settings.PullTimer = false;
+                    settings.LimitBreak = true;
+                    settings.MpTicker = false;
+                    settings.Nameplates = true;
+                    settings.PartyFrames = true;
+                    settings.PartyCooldowns = false;
+                    settings.EnemyList = true;
+                    settings.JobSpecificBars = false;
+                    settings.Minimap = true;
+                    settings.ActionCamera = false;
+                    break;
+                case AetherPreset.RaidFocused:
+                    // Shipped RaidFocused.delvui is the source of truth; pills mirror maintainer Home toggles only.
+                    settings.PlayerParameterOrb = false;
+                    settings.IndividualFramesMaster = true;
+                    settings.UnitFrames = true;
+                    settings.ManaBars = true;
+                    settings.CastBars = true;
+                    settings.BuffsAndDebuffs = true;
+                    settings.OtherElements = true;
+                    settings.ExperienceBar = false;
+                    settings.GcdIndicator = false;
+                    settings.PullTimer = true;
+                    settings.LimitBreak = true;
+                    settings.MpTicker = false;
+                    settings.Nameplates = true;
+                    settings.PartyFrames = true;
+                    settings.PartyCooldowns = true;
+                    settings.EnemyList = true;
+                    settings.JobSpecificBars = true;
+                    settings.Minimap = true;
+                    settings.ActionCamera = false;
+                    break;
+                case AetherPreset.ActionCombat:
+                    // Shipped ActionCombat.delvui is the source of truth; pills mirror maintainer Home toggles only.
+                    settings.PlayerParameterOrb = true;
+                    settings.IndividualFramesMaster = false;
+                    settings.UnitFrames = false;
+                    settings.ManaBars = false;
+                    settings.CastBars = false;
+                    settings.BuffsAndDebuffs = true;
+                    settings.OtherElements = false;
+                    settings.ExperienceBar = false;
+                    settings.GcdIndicator = false;
+                    settings.PullTimer = false;
+                    settings.LimitBreak = false;
+                    settings.MpTicker = false;
+                    settings.Nameplates = true;
+                    settings.PartyFrames = true;
+                    settings.PartyCooldowns = false;
+                    settings.EnemyList = true;
+                    settings.JobSpecificBars = false;
+                    settings.Minimap = true;
+                    settings.ActionCamera = true;
+                    break;
             }
         }
     }

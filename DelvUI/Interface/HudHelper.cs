@@ -121,6 +121,9 @@ namespace DelvUI.Interface
                 case "HideDefaultPulltimer":
                     UpdateDefaultPulltimer();
                     break;
+                case "HideDefaultJobGauges":
+                    UpdateJobGauges();
+                    break;
             }
         }
 
@@ -305,7 +308,14 @@ namespace DelvUI.Interface
             ["JobHudNIN1"] = "JobHudNIN1v70",
 
             ["JobHudVPR0"] = "JobHudRDB0",
-            ["JobHudVPR1"] = "JobHudRDB1"
+            ["JobHudVPR1"] = "JobHudRDB1",
+
+            ["JobHudRPR0"] = "JobHudRRP0",
+            ["JobHudRPR1"] = "JobHudRRP1",
+
+            // Sage gauges use the shared "GFF" addon names, not JobHudSGE*.
+            ["JobHudSGE0"] = "JobHudGFF0",
+            ["JobHudSGE1"] = "JobHudGFF1"
         };
 
         private unsafe void UpdateJobGauges(bool forceVisible = false)

@@ -174,11 +174,62 @@ namespace DelvUI.Config.Home
             ImGui.PopStyleColor();
 
             ImGui.SetCursorPosX(startX);
-            ImGui.PushItemWidth(comboWidth);
+            return DrawHomeFontCombo(id, ref index, options, comboWidth);
+        }
+
+        private static bool DrawHomeFontCombo(string comboId, ref int index, string[] options, float comboWidth)
+        {
+            if (options.Length == 0)
+            {
+                return false;
+            }
+
+            index = Math.Clamp(index, 0, options.Length - 1);
+            string preview = options[index];
+
+            const int maxVisibleItems = 12;
+            float itemHeight = ImGui.GetTextLineHeightWithSpacing();
+            int visibleItems = Math.Min(options.Length, maxVisibleItems);
+            float popupHeight = visibleItems * itemHeight + ImGui.GetStyle().WindowPadding.Y * 2f;
+
             PushHomeComboChrome();
-            bool changed = ImGui.Combo(id, ref index, options, 12);
-            PopHomeComboChrome();
+            ImGui.PushItemWidth(comboWidth);
+
+            Vector2 comboScreenPos = ImGui.GetCursorScreenPos();
+            float frameHeight = ImGui.GetFrameHeightWithSpacing();
+            float windowBottom = ImGui.GetWindowPos().Y + ImGui.GetWindowContentRegionMax().Y;
+            float spaceBelow = windowBottom - (comboScreenPos.Y + frameHeight);
+            bool openUpward = spaceBelow < popupHeight;
+
+            ImGui.SetNextWindowSize(new Vector2(comboWidth, popupHeight), ImGuiCond.Appearing);
+            if (openUpward)
+            {
+                ImGui.SetNextWindowPos(comboScreenPos, ImGuiCond.Appearing, new Vector2(0f, 1f));
+            }
+
+            bool changed = false;
+            if (ImGui.BeginCombo(comboId, preview))
+            {
+                for (int i = 0; i < options.Length; i++)
+                {
+                    bool isSelected = index == i;
+                    if (ImGui.Selectable($"{options[i]}##{comboId}_{i}", isSelected))
+                    {
+                        index = i;
+                        changed = true;
+                    }
+
+                    if (isSelected)
+                    {
+                        ImGui.SetItemDefaultFocus();
+                    }
+                }
+
+                ImGui.EndCombo();
+            }
+
             ImGui.PopItemWidth();
+            PopHomeComboChrome();
 
             return changed;
         }

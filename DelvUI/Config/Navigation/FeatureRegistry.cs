@@ -11,7 +11,6 @@ using DelvUI.Interface.PartyCooldowns;
 using DelvUI.Interface.StatusEffects;
 using System;
 using System.Collections.Generic;
-using System.Reflection;
 
 namespace DelvUI.Config.Navigation
 {
@@ -304,7 +303,7 @@ namespace DelvUI.Config.Navigation
 
             foreach (Type configType in configTypes)
             {
-                PluginConfigObject? config = node.GetConfigObjectForType(configType);
+                PluginConfigObject? config = GetConfigObjectForType(node, configType);
                 if (config == null || !config.Disableable)
                 {
                     continue;
@@ -326,7 +325,7 @@ namespace DelvUI.Config.Navigation
         private static void SetOtherElementConfigEnabled<T>(BaseNode node, HomeFeatureSettingsConfig settings, bool subEnabled)
             where T : PluginConfigObject
         {
-            PluginConfigObject? config = node.GetConfigObjectForType(typeof(T));
+            PluginConfigObject? config = GetConfigObjectForType(node, typeof(T));
             if (config == null || !config.Disableable)
             {
                 return;
@@ -360,7 +359,7 @@ namespace DelvUI.Config.Navigation
 
         private static bool GetConfigEnabled<T>(BaseNode node) where T : PluginConfigObject
         {
-            PluginConfigObject? config = node.GetConfigObjectForType(typeof(T));
+            PluginConfigObject? config = GetConfigObjectForType(node, typeof(T));
             return config == null || config.Enabled;
         }
 
@@ -368,13 +367,18 @@ namespace DelvUI.Config.Navigation
         {
             if (MasterConfigTypes.TryGetValue(featureId, out Type? masterType))
             {
-                PluginConfigObject? masterConfig = node.GetConfigObjectForType(masterType);
+                PluginConfigObject? masterConfig = GetConfigObjectForType(node, masterType);
                 return masterConfig == null || masterConfig.Enabled;
+            }
+
+            if (featureId == FeatureId.BuffsAndDebuffs)
+            {
+                return IsAnyBuffDebuffListEnabled(node);
             }
 
             foreach (Type configType in configTypes)
             {
-                PluginConfigObject? config = node.GetConfigObjectForType(configType);
+                PluginConfigObject? config = GetConfigObjectForType(node, configType);
                 if (config == null || !config.Disableable)
                 {
                     continue;
@@ -389,8 +393,27 @@ namespace DelvUI.Config.Navigation
             return true;
         }
 
-        public static void SyncHomeSettingsFromConfigs(BaseNode node, HomeFeatureSettingsConfig settings)
+        private static bool IsAnyBuffDebuffListEnabled(BaseNode node)
         {
+            return IsConfigEnabled<PlayerBuffsListConfig>(node)
+                || IsConfigEnabled<PlayerDebuffsListConfig>(node)
+                || IsConfigEnabled<TargetBuffsListConfig>(node)
+                || IsConfigEnabled<TargetDebuffsListConfig>(node)
+                || IsConfigEnabled<FocusTargetBuffsListConfig>(node)
+                || IsConfigEnabled<FocusTargetDebuffsListConfig>(node)
+                || IsConfigEnabled<CustomEffectsListConfig>(node);
+        }
+
+        private static bool IsConfigEnabled<T>(BaseNode node) where T : PluginConfigObject
+        {
+            T? config = node.GetConfigObject<T>();
+            return config != null && config.Enabled;
+        }
+
+        public static bool SyncHomeSettingsFromConfigs(BaseNode node, HomeFeatureSettingsConfig settings)
+        {
+            bool changed = false;
+
             foreach (KeyValuePair<FeatureId, Type[]> entry in ConfigTypes)
             {
                 if (entry.Key == FeatureId.OtherElements)
@@ -402,55 +425,67 @@ namespace DelvUI.Config.Navigation
 
                 bool enabled = GetFeatureEnabledFromConfigs(node, entry.Key, entry.Value);
 
-                switch (entry.Key)
-                {
-                    case FeatureId.PlayerParameterOrb:
-                        settings.PlayerParameterOrb = enabled;
-                        break;
-                    case FeatureId.UnitFrames:
-                        settings.UnitFrames = enabled;
-                        break;
-                    case FeatureId.ManaBars:
-                        settings.ManaBars = enabled;
-                        break;
-                    case FeatureId.CastBars:
-                        settings.CastBars = enabled;
-                        break;
-                    case FeatureId.BuffsAndDebuffs:
-                        settings.BuffsAndDebuffs = enabled;
-                        break;
-                    case FeatureId.Nameplates:
-                        settings.Nameplates = enabled;
-                        break;
-                    case FeatureId.PartyFrames:
-                        settings.PartyFrames = enabled;
-                        break;
-                    case FeatureId.PartyCooldowns:
-                        settings.PartyCooldowns = enabled;
-                        break;
-                    case FeatureId.EnemyList:
-                        settings.EnemyList = enabled;
-                        break;
-                    case FeatureId.JobSpecificBars:
-                        settings.JobSpecificBars = enabled;
-                        break;
-                    case FeatureId.Minimap:
-                        settings.Minimap = enabled;
-                        break;
-                    case FeatureId.ActionCamera:
-                        settings.ActionCamera = enabled;
-                        break;
-                }
+                changed |= AssignIfDifferent(entry.Key, settings, enabled);
             }
 
-            settings.IndividualFramesMaster = settings.UnitFrames || settings.ManaBars || settings.CastBars;
+            bool individualFramesMaster = settings.UnitFrames || settings.ManaBars || settings.CastBars;
+            if (settings.IndividualFramesMaster != individualFramesMaster)
+            {
+                settings.IndividualFramesMaster = individualFramesMaster;
+                changed = true;
+            }
+
+            return changed;
         }
 
-        private static PluginConfigObject? GetConfigObjectForType(this BaseNode node, Type type)
+        private static bool AssignIfDifferent(FeatureId featureId, HomeFeatureSettingsConfig settings, bool enabled)
         {
-            MethodInfo? genericMethod = node.GetType().GetMethod("GetConfigObject");
-            MethodInfo? method = genericMethod?.MakeGenericMethod(type);
-            return (PluginConfigObject?)method?.Invoke(node, null);
+            switch (featureId)
+            {
+                case FeatureId.PlayerParameterOrb when settings.PlayerParameterOrb != enabled:
+                    settings.PlayerParameterOrb = enabled;
+                    return true;
+                case FeatureId.UnitFrames when settings.UnitFrames != enabled:
+                    settings.UnitFrames = enabled;
+                    return true;
+                case FeatureId.ManaBars when settings.ManaBars != enabled:
+                    settings.ManaBars = enabled;
+                    return true;
+                case FeatureId.CastBars when settings.CastBars != enabled:
+                    settings.CastBars = enabled;
+                    return true;
+                case FeatureId.BuffsAndDebuffs when settings.BuffsAndDebuffs != enabled:
+                    settings.BuffsAndDebuffs = enabled;
+                    return true;
+                case FeatureId.Nameplates when settings.Nameplates != enabled:
+                    settings.Nameplates = enabled;
+                    return true;
+                case FeatureId.PartyFrames when settings.PartyFrames != enabled:
+                    settings.PartyFrames = enabled;
+                    return true;
+                case FeatureId.PartyCooldowns when settings.PartyCooldowns != enabled:
+                    settings.PartyCooldowns = enabled;
+                    return true;
+                case FeatureId.EnemyList when settings.EnemyList != enabled:
+                    settings.EnemyList = enabled;
+                    return true;
+                case FeatureId.JobSpecificBars when settings.JobSpecificBars != enabled:
+                    settings.JobSpecificBars = enabled;
+                    return true;
+                case FeatureId.Minimap when settings.Minimap != enabled:
+                    settings.Minimap = enabled;
+                    return true;
+                case FeatureId.ActionCamera when settings.ActionCamera != enabled:
+                    settings.ActionCamera = enabled;
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        private static PluginConfigObject? GetConfigObjectForType(BaseNode node, Type type)
+        {
+            return ConfigurationManager.Instance.GetConfigObjectForType(type);
         }
     }
 }

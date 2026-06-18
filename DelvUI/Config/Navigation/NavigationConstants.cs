@@ -18,6 +18,7 @@ namespace DelvUI.Config.Navigation
         {
             "Import",
             "Profiles",
+            "Preset HUD Layouts",
             "Colors",
             "Customization",
             "Visibility",

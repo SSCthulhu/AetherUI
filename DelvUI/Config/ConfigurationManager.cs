@@ -414,7 +414,10 @@ namespace DelvUI.Config
                 return;
             }
 
-            FeatureRegistry.SyncHomeSettingsFromConfigs(ConfigBaseNode, settings);
+            if (FeatureRegistry.SyncHomeSettingsFromConfigs(ConfigBaseNode, settings))
+            {
+                ForceNeedsSave();
+            }
         }
 
         public void SaveConfigurations(bool forced = false, bool saveProfile = true)
@@ -650,6 +653,14 @@ namespace DelvUI.Config
 
         public bool ApplyPresetImport(string rawString)
         {
+            PresetHudLayoutSettingsConfig? preservedHudLayoutSettings =
+                GetConfigObject<PresetHudLayoutSettingsConfig>();
+            PresetHudLayoutSettingsConfig hudLayoutSnapshot = PresetHudLayoutSettingsConfig.DefaultConfig();
+            if (preservedHudLayoutSettings != null)
+            {
+                hudLayoutSnapshot.CopyBindingsFrom(preservedHudLayoutSettings);
+            }
+
             if (!ImportProfileNonCached(rawString, out BaseNode? loadedNode) || loadedNode == null)
             {
                 return false;
@@ -661,6 +672,10 @@ namespace DelvUI.Config
             ConfigBaseNode.ConfigObjectResetEvent -= OnConfigObjectReset;
             ConfigBaseNode = loadedNode;
             ConfigBaseNode.ConfigObjectResetEvent += OnConfigObjectReset;
+
+            PresetHudLayoutSettingsConfig? restoredHudLayoutSettings =
+                GetConfigObject<PresetHudLayoutSettingsConfig>();
+            restoredHudLayoutSettings?.CopyBindingsFrom(hudLayoutSnapshot);
 
             PerformV2Migration();
             InitializeHomeFeatureSettings();
@@ -687,6 +702,7 @@ namespace DelvUI.Config
         {
             // Home
             typeof(HomeFeatureSettingsConfig),
+            typeof(PresetHudLayoutSettingsConfig),
 
             // Player Parameter Orb
             typeof(PlayerParameterOrbConfig),
