@@ -1,5 +1,6 @@
 using DelvUI.Config;
 using DelvUI.Config.Attributes;
+using DelvUI.Helpers;
 using System;
 using System.Collections.Generic;
 using System.Numerics;
@@ -18,6 +19,15 @@ namespace DelvUI.Interface.GeneralElements
         [DragInt2("Position", min = -4000, max = 4000)]
         [Order(6, collapseWith = nameof(UseGlobalHudShift))]
         public Vector2 HudOffset = new(0, 0);
+
+        [PresetExempt]
+        [DragFloat("Global HUD Scale", min = GlobalHudScaleHelper.MinScale, max = GlobalHudScaleHelper.MaxScale, velocity = 0.01f)]
+        [Order(7)]
+        public float GlobalHudScale = GlobalHudScaleHelper.DefaultScale;
+
+        [Checkbox("Keep HUD elements on screen", help = "Prevents movable HUD elements from rendering outside the game window. Positions are adjusted automatically when the viewport size changes.")]
+        [Order(8)]
+        public bool ClampHudToScreen = true;
 
         [Checkbox("Dim Aether UI settings window when not focused")]
         [Order(10)]

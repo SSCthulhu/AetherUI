@@ -1,4 +1,5 @@
 using Dalamud.Bindings.ImGui;
+using DelvUI.Helpers;
 using System;
 using System.Numerics;
 
@@ -19,7 +20,7 @@ namespace DelvUI.Interface.GeneralElements
                 return;
             }
 
-            var size = MinimapLayout.ClampSize(config.Size);
+            var size = MinimapLayout.GetScaledSize(config.Size);
             var half = size * 0.5f;
             var square = config.Square;
             var northLocked = config.NorthLock;
@@ -41,7 +42,7 @@ namespace DelvUI.Interface.GeneralElements
                 DrawCardinals(draw, center, half, northLocked, mapYaw);
             }
 
-            var thickness = MinimapLayout.ClampBorderThickness(config.BorderThickness);
+            var thickness = GlobalHudScaleHelper.Scale(MinimapLayout.ClampBorderThickness(config.BorderThickness));
             if (thickness > 0.001f)
             {
                 if (square && northLocked)
@@ -183,7 +184,7 @@ namespace DelvUI.Interface.GeneralElements
                 }
 
                 draw.AddCircleFilled(pos, blip.Radius, blip.Color, 20);
-                draw.AddCircle(pos, blip.Radius, 0xFF000000, 20, 1.5f);
+                draw.AddCircle(pos, blip.Radius, 0xFF000000, 20, GlobalHudScaleHelper.Scale(1.5f));
             }
         }
 
@@ -197,6 +198,7 @@ namespace DelvUI.Interface.GeneralElements
             bool northLocked)
         {
             var clipRadius = half * BlipClipScale;
+            var blipStroke = GlobalHudScaleHelper.Scale(1.5f);
             foreach (var blip in snapshot.Blips)
             {
                 var offset = northLocked ? blip.ScreenOffset : Rotate(blip.ScreenOffset, mapYaw);
@@ -207,7 +209,7 @@ namespace DelvUI.Interface.GeneralElements
                 }
 
                 draw.AddCircleFilled(pos, blip.Radius, blip.Color, 20);
-                draw.AddCircle(pos, blip.Radius, 0xFF000000, 20, 1.5f);
+                draw.AddCircle(pos, blip.Radius, 0xFF000000, 20, blipStroke);
             }
         }
 
@@ -221,6 +223,7 @@ namespace DelvUI.Interface.GeneralElements
             bool northLocked)
         {
             var clipRadius = half * BlipClipScale;
+            var fateStroke = GlobalHudScaleHelper.Scale(2f);
             foreach (var area in snapshot.FateAreas)
             {
                 var offset = northLocked ? area.ScreenOffset : Rotate(area.ScreenOffset, mapYaw);
@@ -231,7 +234,7 @@ namespace DelvUI.Interface.GeneralElements
                 }
 
                 draw.AddCircleFilled(pos, area.RadiusPixels, 0x503878B8, 48);
-                draw.AddCircle(pos, area.RadiusPixels, 0xFF5098E8, 48, 2f);
+                draw.AddCircle(pos, area.RadiusPixels, 0xFF5098E8, 48, fateStroke);
             }
         }
 
@@ -285,7 +288,7 @@ namespace DelvUI.Interface.GeneralElements
             DrawFacingCone(draw, center, coneRadius, cameraDirection, facingOpacity);
 
             var pinColor = snapshot.PlayerPinFillColor;
-            var pinSize = MinimapLayout.ClampPlayerPinSize(config.PlayerPinSize);
+            var pinSize = MinimapLayout.GetScaledPlayerPinSize(config.PlayerPinSize);
             var playerDirection = GetPlayerDirection(snapshot, northLocked);
             DrawPin(draw, center, pinSize, playerDirection, pinColor);
         }

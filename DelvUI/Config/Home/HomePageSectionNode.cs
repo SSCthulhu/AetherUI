@@ -21,8 +21,8 @@ namespace DelvUI.Config.Home
         private const float RightColumnCtaSpacing = 14f;
         private const float RightColumnCtaHeight = 72f;
         private const float RightColumnCtaWidthRatio = 0.88f;
-        private const float CtaClusterPadding = 12f;
         private const float LeftColumnRatio = 0.64f;
+        private const float CtaBottomAlignNudge = 8f;
 
         public HomePageSectionNode()
         {
@@ -36,21 +36,21 @@ namespace DelvUI.Config.Home
                 return false;
             }
 
-            ImGui.NewLine();
-
-            if (!ImGui.BeginChild("AetherUI_HomePage", new Vector2(0, -10), false))
-            {
-                return false;
-            }
-
-            bool didReset = DrawContent(ref changed);
-            ImGui.EndChild();
-
-            return didReset | changed;
+            return DrawContent(ref changed);
         }
 
         private bool DrawContent(ref bool changed)
         {
+            if (!ImGui.BeginChild(
+                "AetherUI_HomePanel",
+                new Vector2(0f, -10f),
+                false,
+                ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse))
+            {
+                ImGui.EndChild();
+                return false;
+            }
+
             float contentOriginX = ImGui.GetCursorPosX();
             float contentWidth = ImGui.GetContentRegionAvail().X;
 
@@ -62,117 +62,140 @@ namespace DelvUI.Config.Home
             ImGui.Spacing();
 
             float scale = ImGuiHelpers.GlobalScale;
+            float scrollHeight = ImGui.GetContentRegionAvail().Y;
+            if (scrollHeight < 1f)
+            {
+                scrollHeight = 1f;
+            }
+
+            if (!ImGui.BeginChild("AetherUI_HomePageScroll", new Vector2(0f, scrollHeight), false))
+            {
+                ImGui.EndChild();
+                ImGui.EndChild();
+                return false;
+            }
+
+            bool didReset = DrawScrollableBody(ref changed, contentWidth, scale);
+
+            ImGui.EndChild();
+
+            ImGui.EndChild();
+
+            return didReset;
+        }
+
+        private bool DrawScrollableBody(ref bool changed, float contentWidth, float scale)
+        {
+            float contentOriginX = ImGui.GetCursorPosX();
             float columnGap = ColumnSpacing * scale;
             float leftSectionWidth = contentWidth * LeftColumnRatio - columnGap * 0.5f;
             float rightSectionWidth = contentWidth - leftSectionWidth - columnGap;
             float rowStartY = ImGui.GetCursorPosY();
-
             float rightSectionStartX = contentOriginX + leftSectionWidth + columnGap;
 
             ImGui.SetCursorPos(new Vector2(contentOriginX, rowStartY));
             float quickFeaturesInnerWidth = leftSectionWidth - HomeBorderedSectionScope.SidePadding * scale * 2f;
-            using (HomeBorderedSectionScope quickFeaturesSection = HomeBorderedSectionScope.Begin("Quick Features", leftSectionWidth))
+            using (HomeBorderedSectionScope.Begin("Quick Features", leftSectionWidth))
             {
                 changed |= DrawFeatureTileGrid(quickFeaturesInnerWidth);
             }
 
-            float quickFeaturesBorderBottom = ImGui.GetCursorPosY() - HomeBorderedSectionScope.BottomAdvance * scale;
+            float leftBottom = ImGui.GetCursorPosY();
 
             ImGui.SetCursorPos(new Vector2(rightSectionStartX, rowStartY));
-            DrawRightColumn(rightSectionStartX, rightSectionWidth, quickFeaturesBorderBottom, ref changed);
+            DrawGlobalStyleSection(rightSectionStartX, rightSectionWidth, ref changed);
 
-            float rightSectionBottom = ImGui.GetCursorPosY();
-            ImGui.SetCursorPosY(Math.Max(quickFeaturesBorderBottom + HomeBorderedSectionScope.BottomAdvance * scale, rightSectionBottom));
+            float rightBottom = DrawCtaCluster(rightSectionStartX, rightSectionWidth, scale, leftBottom);
+
+            float contentBottom = Math.Max(leftBottom, rightBottom);
+            ImGui.SetCursorPosY(contentBottom);
+            ImGui.Dummy(new Vector2(1f, 0f));
+
+            float maxScroll = ImGui.GetScrollMaxY();
+            if (ImGui.GetScrollY() > maxScroll)
+            {
+                ImGui.SetScrollY(maxScroll);
+            }
 
             return changed;
         }
 
-        private void DrawRightColumn(float sectionStartX, float sectionWidth, float targetBottomY, ref bool changed)
+        private static float DrawCtaCluster(float sectionStartX, float sectionWidth, float scale, float alignBottomY)
+        {
+            float ctaHeight = RightColumnCtaHeight * scale;
+            float ctaSpacing = RightColumnCtaSpacing * scale;
+            float ctaGap = GridGap * scale;
+            float blockHeight = ctaHeight + ctaSpacing + ctaHeight;
+            float clusterLayoutHeight = HomeCtaClusterScope.GetTotalLayoutHeight(blockHeight);
+            float clusterTopY = alignBottomY - clusterLayoutHeight - CtaBottomAlignNudge * scale;
+
+            ImGui.SetCursorPos(new Vector2(sectionStartX, clusterTopY));
+
+            using (HomeCtaClusterScope scope = HomeCtaClusterScope.Begin(sectionWidth))
+            {
+                float buttonAreaWidth = scope.InnerWidth;
+                float shrunkButtonWidth = buttonAreaWidth * RightColumnCtaWidthRatio;
+                float buttonsStartX = ImGui.GetCursorPosX() + (buttonAreaWidth - shrunkButtonWidth) * 0.5f;
+                float splitButtonWidth = (shrunkButtonWidth - ctaGap) * 0.5f;
+                Vector2 splitCtaSize = new Vector2(splitButtonWidth, ctaHeight);
+                Vector2 fullCtaSize = new Vector2(shrunkButtonWidth, ctaHeight);
+                float rowTopY = ImGui.GetCursorPosY();
+
+                ImGui.SetCursorPos(new Vector2(buttonsStartX, rowTopY));
+
+                if (HomePrimaryButton.Draw(
+                    "Advanced Options",
+                    string.Empty,
+                    FontAwesomeIcon.SlidersH,
+                    splitCtaSize,
+                    buttonId: "##homeAdvancedOptions",
+                    advanceLayout: false))
+                {
+                    HomeNavigation.NavigateToAdvancedColors();
+                }
+
+                ImGui.SetCursorPos(new Vector2(buttonsStartX + splitButtonWidth + ctaGap, rowTopY));
+                if (HomePrimaryButton.Draw(
+                    "Profiles/Import",
+                    string.Empty,
+                    FontAwesomeIcon.FolderOpen,
+                    splitCtaSize,
+                    buttonId: "##homeProfilesImport",
+                    advanceLayout: false))
+                {
+                    HomeNavigation.NavigateToProfilesImport();
+                }
+
+                ImGui.SetCursorPos(new Vector2(buttonsStartX, rowTopY + ctaHeight + ctaSpacing));
+                if (HomePrimaryButton.Draw(
+                    "Open HUD Editor",
+                    "Customize • Position • Style",
+                    FontAwesomeIcon.Lock,
+                    fullCtaSize,
+                    tooltip: "Unlock HUD elements so you can drag and position them on screen.",
+                    buttonId: "##homeOpenHudEditor",
+                    advanceLayout: false))
+                {
+                    ConfigurationManager.Instance.LockHUD = false;
+                }
+            }
+
+            return ImGui.GetCursorPosY();
+        }
+
+        private static void DrawGlobalStyleSection(float sectionStartX, float sectionWidth, ref bool changed)
         {
             float labelOffset = GlobalTypographyControls.GetCompactContentStartOffset(sectionWidth);
 
             using (HomeBorderedSectionScope.Begin("Global Style", sectionWidth, labelOffset))
             {
                 FontsConfig? fontsConfig = ConfigurationManager.Instance.GetConfigObject<FontsConfig>();
-                if (fontsConfig != null)
+                HUDOptionsConfig? hudOptionsConfig = ConfigurationManager.Instance.GetConfigObject<HUDOptionsConfig>();
+                if (fontsConfig != null && hudOptionsConfig != null)
                 {
-                    changed |= GlobalTypographyControls.DrawHomePanel(fontsConfig, ref changed);
+                    changed |= GlobalTypographyControls.DrawHomePanel(fontsConfig, hudOptionsConfig, ref changed);
                 }
             }
-
-            float afterGlobalStyleY = ImGui.GetCursorPosY();
-            float scale = ImGuiHelpers.GlobalScale;
-            float clusterTopGap = RightColumnCtaSpacing * scale;
-            float ctaSpacing = RightColumnCtaSpacing * scale;
-            float ctaHeight = RightColumnCtaHeight * scale;
-            float ctaGap = GridGap * scale;
-            float clusterTopY = afterGlobalStyleY + clusterTopGap;
-            float clusterBottomY = targetBottomY;
-            float clusterBoxHeight = Math.Max(0f, clusterBottomY - clusterTopY);
-            float clusterWidth = sectionWidth;
-
-            float buttonAreaWidth = clusterWidth - CtaClusterPadding * scale * 2f;
-            float shrunkButtonWidth = buttonAreaWidth * RightColumnCtaWidthRatio;
-            float buttonsStartX = sectionStartX + (clusterWidth - shrunkButtonWidth) * 0.5f;
-            float splitButtonWidth = (shrunkButtonWidth - ctaGap) * 0.5f;
-            Vector2 splitCtaSize = new Vector2(splitButtonWidth, ctaHeight);
-            Vector2 fullCtaSize = new Vector2(shrunkButtonWidth, ctaHeight);
-
-            float buttonsBlockHeight = ctaHeight + ctaSpacing + ctaHeight;
-            float buttonsBlockTopY = clusterTopY + Math.Max(0f, (clusterBoxHeight - buttonsBlockHeight) * 0.5f);
-            float topRowY = buttonsBlockTopY;
-            float hudRowY = buttonsBlockTopY + ctaHeight + ctaSpacing;
-
-            ImGui.SetCursorPos(new Vector2(sectionStartX, clusterTopY));
-            ImGui.PushID("homeCtaCluster");
-            ImGui.BeginGroup();
-            ImGui.Dummy(new Vector2(clusterWidth, clusterBoxHeight));
-
-            ImGui.SetCursorPos(new Vector2(buttonsStartX, topRowY));
-            if (HomePrimaryButton.Draw(
-                "Advanced Options",
-                string.Empty,
-                FontAwesomeIcon.SlidersH,
-                splitCtaSize,
-                buttonId: "##homeAdvancedOptions"))
-            {
-                HomeNavigation.NavigateToAdvancedColors();
-            }
-
-            ImGui.SetCursorPos(new Vector2(buttonsStartX + splitButtonWidth + ctaGap, topRowY));
-            if (HomePrimaryButton.Draw(
-                "Profiles/Import",
-                string.Empty,
-                FontAwesomeIcon.FolderOpen,
-                splitCtaSize,
-                buttonId: "##homeProfilesImport"))
-            {
-                HomeNavigation.NavigateToProfilesImport();
-            }
-
-            ImGui.SetCursorPos(new Vector2(buttonsStartX, hudRowY));
-            if (HomePrimaryButton.Draw(
-                "Open HUD Editor",
-                "Customize • Position • Style",
-                FontAwesomeIcon.Lock,
-                fullCtaSize,
-                tooltip: "Unlock HUD elements so you can drag and position them on screen.",
-                buttonId: "##homeOpenHudEditor"))
-            {
-                ConfigurationManager.Instance.LockHUD = false;
-            }
-
-            ImGui.EndGroup();
-            ImGui.PopID();
-
-            if (clusterBoxHeight > 1f)
-            {
-                Vector2 borderMin = HomeCtaClusterBorder.GetOuterMin(sectionStartX, clusterTopY);
-                Vector2 borderMax = HomeCtaClusterBorder.GetOuterMax(sectionStartX, clusterBottomY, clusterWidth);
-                HomeCtaClusterBorder.Draw(borderMin, borderMax);
-            }
-
-            ImGui.SetCursorPos(new Vector2(sectionStartX, clusterBottomY + HomeBorderedSectionScope.BottomAdvance * scale));
         }
 
         private bool DrawFeatureTileGrid(float gridWidth)

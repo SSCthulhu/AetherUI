@@ -138,10 +138,10 @@ namespace DelvUI.Interface.Party
             if (count <= 0) { return; }
 
             _layoutInfo = LayoutHelper.CalculateLayout(
-                Config.Size,
-                Config.IconSize,
+                GlobalHudScaleHelper.Scale(Config.Size),
+                GlobalHudScaleHelper.Scale(Config.IconSize),
                 count,
-                Config.IconPadding,
+                GlobalHudScaleHelper.Scale(Config.IconPadding),
                 LayoutHelper.GetFillsRowsFirst(Config.FillRowsFirst, LayoutHelper.GrowthDirectionsFromIndex(Config.Directions))
             );
         }
@@ -161,9 +161,10 @@ namespace DelvUI.Interface.Party
 
             // area
             GrowthDirections growthDirections = LayoutHelper.GrowthDirectionsFromIndex(Config.Directions);
+            Vector2 scaledListSize = GlobalHudScaleHelper.Scale(Config.Size);
             Vector2 position = origin + GetAnchoredPosition(Config.Position, Config.Size, DrawAnchor.TopLeft);
-            Vector2 areaPos = LayoutHelper.CalculateStartPosition(position, Config.Size, growthDirections);
-            Vector2 margin = new Vector2(14, 10);
+            Vector2 areaPos = LayoutHelper.CalculateStartPosition(position, scaledListSize, growthDirections);
+            Vector2 margin = GlobalHudScaleHelper.Scale(new Vector2(14, 10));
 
             ImDrawListPtr drawList = ImGui.GetWindowDrawList();
 
@@ -174,9 +175,9 @@ namespace DelvUI.Interface.Party
                 growthDirections,
                 count,
                 position,
-                Config.Size,
-                Config.IconSize,
-                Config.IconPadding,
+                scaledListSize,
+                GlobalHudScaleHelper.Scale(Config.IconSize),
+                GlobalHudScaleHelper.Scale(Config.IconPadding),
                 LayoutHelper.GetFillsRowsFirst(Config.FillRowsFirst, growthDirections),
                 _layoutInfo
             );
@@ -187,6 +188,8 @@ namespace DelvUI.Interface.Party
             Vector2 windowPos = minPos - margin;
             Vector2 windowSize = maxPos - minPos;            
 
+            Vector2 scaledIconSize = GlobalHudScaleHelper.Scale(Config.IconSize);
+
             AddDrawAction(Config.StrataLevel, () =>
             {
                 DrawHelper.DrawInWindow(ID, windowPos, windowSize + margin * 2, false, (drawList) =>
@@ -194,7 +197,7 @@ namespace DelvUI.Interface.Party
                     // area
                     if (Config.Preview)
                     {
-                        drawList.AddRectFilled(areaPos, areaPos + Config.Size, 0x88000000);
+                        drawList.AddRectFilled(areaPos, areaPos + scaledListSize, 0x88000000);
                     }
 
                     for (int i = 0; i < count; i++)
@@ -208,13 +211,13 @@ namespace DelvUI.Interface.Party
                         // icon
                         bool recharging = effectTime == 0 && cooldownTime > 0;
                         uint color = recharging ? 0xAAFFFFFF : 0xFFFFFFFF;
-                        bool shouldDrawCooldown = ClipRectsHelper.Instance.GetClipRectForArea(iconPos, Config.IconSize) == null;
+                        bool shouldDrawCooldown = ClipRectsHelper.Instance.GetClipRectForArea(iconPos, scaledIconSize) == null;
 
-                        DrawHelper.DrawIcon(cooldown.Data.IconId, iconPos, Config.IconSize, false, color, drawList);
+                        DrawHelper.DrawIcon(cooldown.Data.IconId, iconPos, scaledIconSize, false, color, drawList);
 
                         if (shouldDrawCooldown && effectTime == 0 && cooldownTime > 0)
                         {
-                            DrawHelper.DrawIconCooldown(iconPos, Config.IconSize, cooldownTime, cooldown.Data.CooldownDuration, drawList);
+                            DrawHelper.DrawIconCooldown(iconPos, scaledIconSize, cooldownTime, cooldown.Data.CooldownDuration, drawList);
                         }
 
                         // border
@@ -223,7 +226,7 @@ namespace DelvUI.Interface.Party
                             bool active = effectTime > 0 && Config.ChangeIconBorderWhenActive;
                             uint iconBorderColor = active ? Config.IconActiveBorderColor.Base : Config.BorderColor.Base;
                             int thickness = active ? Config.IconActiveBorderThickness : Config.BorderThickness;
-                            drawList.AddRect(iconPos, iconPos + Config.IconSize, iconBorderColor, 0, ImDrawFlags.None, thickness);
+                            drawList.AddRect(iconPos, iconPos + scaledIconSize, iconBorderColor, 0, ImDrawFlags.None, GlobalHudScaleHelper.Scale(thickness));
                         }
                     }
                 });
@@ -265,12 +268,12 @@ namespace DelvUI.Interface.Party
                         }
                     }
 
-                    _timeLabel.Draw(iconPos, Config.IconSize, character);
+                    _timeLabel.Draw(iconPos, scaledIconSize, character);
                     Config.TimeLabel.Color = realColor;
                 });
 
                 // tooltips / interaction
-                if (ImGui.IsMouseHoveringRect(iconPos, iconPos + Config.IconSize))
+                if (ImGui.IsMouseHoveringRect(iconPos, iconPos + scaledIconSize))
                 {
                     hoveringCooldown = cooldown;
                 }

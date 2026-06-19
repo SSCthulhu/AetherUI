@@ -20,10 +20,10 @@ namespace DelvUI.Config.Home.Widgets
         private readonly string _title;
         private readonly float _titleScreenX;
         private readonly float _borderLeftScreenX;
-        private readonly float _outerWidth;
-        private readonly float _sidePad;
-        private readonly float _bottomPad;
         private readonly float _borderTopScreenY;
+        private readonly float _outerWidth;
+        private readonly float _bottomPad;
+        private readonly float _sectionStartLocalX;
         private float _borderBottomLocalY;
 
         public float InnerWidth { get; }
@@ -55,9 +55,9 @@ namespace DelvUI.Config.Home.Widgets
                 title,
                 titleScreenX,
                 sectionStartScreen.X,
+                sectionStart.X,
                 outerWidth,
                 innerWidth,
-                sidePad,
                 bottomPad,
                 borderTopScreenY);
         }
@@ -66,18 +66,18 @@ namespace DelvUI.Config.Home.Widgets
             string title,
             float titleScreenX,
             float borderLeftScreenX,
+            float sectionStartLocalX,
             float outerWidth,
             float innerWidth,
-            float sidePad,
             float bottomPad,
             float borderTopScreenY)
         {
             _title = title;
             _titleScreenX = titleScreenX;
             _borderLeftScreenX = borderLeftScreenX;
+            _sectionStartLocalX = sectionStartLocalX;
             _outerWidth = outerWidth;
             InnerWidth = innerWidth;
-            _sidePad = sidePad;
             _bottomPad = bottomPad;
             _borderTopScreenY = borderTopScreenY;
         }
@@ -85,6 +85,7 @@ namespace DelvUI.Config.Home.Widgets
         public void Dispose()
         {
             ImGui.Dummy(new Vector2(InnerWidth, _bottomPad));
+            float bottomLocalY = ImGui.GetCursorPosY();
             ImGui.Dummy(new Vector2(_outerWidth, 0f));
             ImGui.EndGroup();
 
@@ -95,10 +96,9 @@ namespace DelvUI.Config.Home.Widgets
 
             DrawBorder(outerMin, outerMax, _title, _titleScreenX);
 
-            _borderBottomLocalY = outerMax.Y - ImGui.GetWindowPos().Y;
+            _borderBottomLocalY = bottomLocalY;
             float localBottom = _borderBottomLocalY + BottomAdvance * ImGuiHelpers.GlobalScale;
-            float localLeft = _borderLeftScreenX - ImGui.GetWindowPos().X;
-            ImGui.SetCursorPos(new Vector2(localLeft, localBottom));
+            ImGui.SetCursorPos(new Vector2(_sectionStartLocalX, localBottom));
             ImGui.PopID();
         }
 

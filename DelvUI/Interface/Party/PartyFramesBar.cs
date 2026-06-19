@@ -197,7 +197,7 @@ namespace DelvUI.Interface.Party
                     : GlobalColors.Instance.SafeRoleColorForJobId(character.ClassJob.RowId);
             }
 
-            Rect background = new Rect(Position, _configs.HealthBar.Size, bgColor);
+            Rect background = new Rect(Vector2.Zero, _configs.HealthBar.Size, bgColor);
 
             // hp
             uint currentHp = Member.HP;
@@ -213,7 +213,7 @@ namespace DelvUI.Interface.Party
             ? GetDistanceColor(character, GetColor(hpScale))
             : GetColor(hpScale);
 
-            Rect healthFill = BarUtilities.GetFillRect(Position, _configs.HealthBar.Size, _configs.HealthBar.FillDirection, hpColor, currentHp, maxHp);
+            Rect healthFill = BarUtilities.GetFillRect(Vector2.Zero, _configs.HealthBar.Size, _configs.HealthBar.FillDirection, hpColor, currentHp, maxHp);
 
             // bar
             int thickness = borderColor != null ? _configs.HealthBar.ColorsConfig.ActiveBorderThickness : _configs.HealthBar.ColorsConfig.InactiveBorderThickness;
@@ -247,7 +247,7 @@ namespace DelvUI.Interface.Party
             if (_configs.HealthBar.ColorsConfig.UseMissingHealthBar)
             {
                 Vector2 healthMissingSize = _configs.HealthBar.Size - BarUtilities.GetFillDirectionOffset(healthFill.Size, _configs.HealthBar.FillDirection);
-                Vector2 healthMissingPos = _configs.HealthBar.FillDirection.IsInverted() ? Position : Position + BarUtilities.GetFillDirectionOffset(healthFill.Size, _configs.HealthBar.FillDirection);
+                Vector2 healthMissingPos = _configs.HealthBar.FillDirection.IsInverted() ? Vector2.Zero : BarUtilities.GetFillDirectionOffset(healthFill.Size, _configs.HealthBar.FillDirection);
 
                 PluginConfigColor? missingHealthColor = _configs.HealthBar.ColorsConfig.UseJobColorAsMissingHealthColor && character is IBattleChara
                     ? GlobalColors.Instance.SafeColorForJobId(character!.ClassJob.RowId)
@@ -285,7 +285,7 @@ namespace DelvUI.Interface.Party
                     bar.AddForegrounds(
                         BarUtilities.GetShieldForeground(
                             _configs.HealthBar.ShieldConfig,
-                            Position,
+                            Vector2.Zero,
                             _configs.HealthBar.Size,
                             healthFill.Size,
                             _configs.HealthBar.FillDirection,
@@ -301,22 +301,22 @@ namespace DelvUI.Interface.Party
             bool isSoftTarget = character != null && character == Plugin.TargetManager.SoftTarget;
             if (_configs.HealthBar.ColorsConfig.ShowHighlight && (isHovering || isSoftTarget))
             {
-                Rect highlight = new Rect(Position, _configs.HealthBar.Size, _configs.HealthBar.ColorsConfig.HighlightColor);
+                Rect highlight = new Rect(Vector2.Zero, _configs.HealthBar.Size, _configs.HealthBar.ColorsConfig.HighlightColor);
                 bar.AddForegrounds(highlight);
             }
 
-            drawActions = bar.GetDrawActions(Vector2.Zero, _configs.HealthBar.StrataLevel);
+            drawActions = bar.GetDrawActions(Position, _configs.HealthBar.StrataLevel);
 
             // mouseover area
             BarHud? mouseoverAreaBar = _configs.HealthBar.MouseoverAreaConfig.GetBar(
-                Position,
+                Vector2.Zero,
                 _configs.HealthBar.Size,
                 _configs.HealthBar.ID + "_mouseoverArea"
             );
 
             if (mouseoverAreaBar != null)
             {
-                drawActions.AddRange(mouseoverAreaBar.GetDrawActions(Vector2.Zero, StrataLevel.HIGHEST));
+                drawActions.AddRange(mouseoverAreaBar.GetDrawActions(Position, StrataLevel.HIGHEST));
             }
 
             return drawActions;
@@ -338,6 +338,14 @@ namespace DelvUI.Interface.Party
             return color.WithAlpha(alpha);
         }
 
+        private (Vector2 iconPos, Vector2 iconSize) GetIconDrawData(Vector2 framePos, Vector2 frameSize, IconConfig icon)
+        {
+            Vector2 parentPos = Utils.GetAnchoredPosition(framePos, -frameSize, icon.FrameAnchor);
+            Vector2 iconSize = GlobalHudScaleHelper.Scale(icon.Size);
+            Vector2 iconPos = Utils.GetAnchoredPosition(parentPos + GlobalHudScaleHelper.Scale(icon.Position), icon.Size, icon.Anchor);
+            return (iconPos, iconSize);
+        }
+
         // need to separate elements that have their own window so clipping doesn't get messy
         public List<(StrataLevel, Action)> GetElementsDrawActions(Vector2 origin)
         {
@@ -352,6 +360,8 @@ namespace DelvUI.Interface.Party
 
             ICharacter? character = Member.Character;
 
+            Vector2 frameSize = _configs.HealthBar.Size;
+
             // who's talking
             bool drawingWhosTalking = false;
             if (WhosTalkingIcon.Enabled && WhosTalkingIcon.Icon.Enabled && WhosTalkingIcon.EnabledForState(Member.WhosTalkingState))
@@ -360,15 +370,14 @@ namespace DelvUI.Interface.Party
 
                 if (texture != null)
                 {
-                    Vector2 parentPos = Utils.GetAnchoredPosition(Position, -_configs.HealthBar.Size, WhosTalkingIcon.Icon.FrameAnchor);
-                    Vector2 iconPos = Utils.GetAnchoredPosition(parentPos + WhosTalkingIcon.Icon.Position, WhosTalkingIcon.Icon.Size, WhosTalkingIcon.Icon.Anchor);
+                    (Vector2 iconPos, Vector2 iconSize) = GetIconDrawData(Position, frameSize, WhosTalkingIcon.Icon);
 
                     drawActions.Add((WhosTalkingIcon.Icon.StrataLevel, () =>
                     {
-                        DrawHelper.DrawInWindow(WhosTalkingIcon.Icon.ID, iconPos, WhosTalkingIcon.Icon.Size, false, (drawList) =>
+                        DrawHelper.DrawInWindow(WhosTalkingIcon.Icon.ID, iconPos, iconSize, false, (drawList) =>
                         {
                             ImGui.SetCursorPos(iconPos);
-                            ImGui.Image(texture.Handle, WhosTalkingIcon.Icon.Size);
+                            ImGui.Image(texture.Handle, iconSize);
                         });
                     }
                     ));
@@ -397,14 +406,13 @@ namespace DelvUI.Interface.Party
 
                 if (iconId > 0)
                 {
-                    Vector2 parentPos = Utils.GetAnchoredPosition(Position, -_configs.HealthBar.Size, RoleIcon.FrameAnchor);
-                    Vector2 iconPos = Utils.GetAnchoredPosition(parentPos + RoleIcon.Position, RoleIcon.Size, RoleIcon.Anchor);
+                    (Vector2 iconPos, Vector2 iconSize) = GetIconDrawData(Position, frameSize, RoleIcon);
 
                     drawActions.Add((RoleIcon.StrataLevel, () =>
                     {
-                        DrawHelper.DrawInWindow(RoleIcon.ID, iconPos, RoleIcon.Size, false, (drawList) =>
+                        DrawHelper.DrawInWindow(RoleIcon.ID, iconPos, iconSize, false, (drawList) =>
                         {
-                            DrawHelper.DrawIcon(iconId, iconPos, RoleIcon.Size, false, drawList);
+                            DrawHelper.DrawIcon(iconId, iconPos, iconSize, false, drawList);
                         });
                     }
                     ));
@@ -417,14 +425,13 @@ namespace DelvUI.Interface.Party
                 uint? iconId = SignIcon.IconID(character);
                 if (iconId.HasValue)
                 {
-                    Vector2 parentPos = Utils.GetAnchoredPosition(Position, -_configs.HealthBar.Size, SignIcon.FrameAnchor);
-                    Vector2 iconPos = Utils.GetAnchoredPosition(parentPos + SignIcon.Position, SignIcon.Size, SignIcon.Anchor);
+                    (Vector2 iconPos, Vector2 iconSize) = GetIconDrawData(Position, frameSize, SignIcon);
 
                     drawActions.Add((SignIcon.StrataLevel, () =>
                     {
-                        DrawHelper.DrawInWindow(SignIcon.ID, iconPos, SignIcon.Size, false, (drawList) =>
+                        DrawHelper.DrawInWindow(SignIcon.ID, iconPos, iconSize, false, (drawList) =>
                         {
-                            DrawHelper.DrawIcon(iconId.Value, iconPos, SignIcon.Size, false, drawList);
+                            DrawHelper.DrawIcon(iconId.Value, iconPos, iconSize, false, drawList);
                         });
                     }
                     ));
@@ -434,14 +441,13 @@ namespace DelvUI.Interface.Party
             // leader icon
             if (LeaderIcon.Enabled && Member.IsPartyLeader)
             {
-                Vector2 parentPos = Utils.GetAnchoredPosition(Position, -_configs.HealthBar.Size, LeaderIcon.FrameAnchor);
-                Vector2 iconPos = Utils.GetAnchoredPosition(parentPos + LeaderIcon.Position, LeaderIcon.Size, LeaderIcon.Anchor);
+                (Vector2 iconPos, Vector2 iconSize) = GetIconDrawData(Position, frameSize, LeaderIcon);
 
                 drawActions.Add((LeaderIcon.StrataLevel, () =>
                 {
-                    DrawHelper.DrawInWindow(LeaderIcon.ID, iconPos, LeaderIcon.Size, false, (drawList) =>
+                    DrawHelper.DrawInWindow(LeaderIcon.ID, iconPos, iconSize, false, (drawList) =>
                     {
-                        DrawHelper.DrawIcon(61521, iconPos, LeaderIcon.Size, false, drawList);
+                        DrawHelper.DrawIcon(61521, iconPos, iconSize, false, drawList);
                     });
                 }
                 ));
@@ -453,14 +459,13 @@ namespace DelvUI.Interface.Party
                 uint? iconId = IconIdForStatus(Member.Status);
                 if (iconId.HasValue)
                 {
-                    Vector2 parentPos = Utils.GetAnchoredPosition(Position, -_configs.HealthBar.Size, PlayerStatus.Icon.FrameAnchor);
-                    Vector2 iconPos = Utils.GetAnchoredPosition(parentPos + PlayerStatus.Icon.Position, PlayerStatus.Icon.Size, PlayerStatus.Icon.Anchor);
+                    (Vector2 iconPos, Vector2 iconSize) = GetIconDrawData(Position, frameSize, PlayerStatus.Icon);
 
                     drawActions.Add((PlayerStatus.Icon.StrataLevel, () =>
                     {
-                        DrawHelper.DrawInWindow(PlayerStatus.Icon.ID, iconPos, PlayerStatus.Icon.Size, false, (drawList) =>
+                        DrawHelper.DrawInWindow(PlayerStatus.Icon.ID, iconPos, iconSize, false, (drawList) =>
                         {
-                            DrawHelper.DrawIcon(iconId.Value, iconPos, PlayerStatus.Icon.Size, false, drawList);
+                            DrawHelper.DrawIcon(iconId.Value, iconPos, iconSize, false, drawList);
                         });
                     }
                     ));
@@ -470,16 +475,15 @@ namespace DelvUI.Interface.Party
             // ready check status icon
             if (Member.ReadyCheckStatus != ReadyCheckStatus.None && ReadyCheckIcon.Enabled && ReadyCheckIcon.Icon.Enabled && _readyCheckTexture != null)
             {
-                Vector2 parentPos = Utils.GetAnchoredPosition(Position, -_configs.HealthBar.Size, ReadyCheckIcon.Icon.FrameAnchor);
-                Vector2 iconPos = Utils.GetAnchoredPosition(parentPos + ReadyCheckIcon.Icon.Position, ReadyCheckIcon.Icon.Size, ReadyCheckIcon.Icon.Anchor);
+                (Vector2 iconPos, Vector2 iconSize) = GetIconDrawData(Position, frameSize, ReadyCheckIcon.Icon);
 
                 drawActions.Add((ReadyCheckIcon.Icon.StrataLevel, () =>
                 {
-                    DrawHelper.DrawInWindow(ReadyCheckIcon.Icon.ID, iconPos, ReadyCheckIcon.Icon.Size, false, (drawList) =>
+                    DrawHelper.DrawInWindow(ReadyCheckIcon.Icon.ID, iconPos, iconSize, false, (drawList) =>
                     {
                         Vector2 uv0 = new Vector2(0.5f * (int)Member.ReadyCheckStatus, 0f);
                         Vector2 uv1 = new Vector2(0.5f + 0.5f * (int)Member.ReadyCheckStatus, 1f);
-                        drawList.AddImage(_readyCheckTexture.Handle, iconPos, iconPos + ReadyCheckIcon.Icon.Size, uv0, uv1);
+                        drawList.AddImage(_readyCheckTexture.Handle, iconPos, iconPos + iconSize, uv0, uv1);
                     });
                 }
                 ));
@@ -489,14 +493,13 @@ namespace DelvUI.Interface.Party
             bool showingRaise = ShowingRaise();
             if (showingRaise && RaiseTracker.Icon.Enabled)
             {
-                Vector2 parentPos = Utils.GetAnchoredPosition(Position, -_configs.HealthBar.Size, RaiseTracker.Icon.FrameAnchor);
-                Vector2 iconPos = Utils.GetAnchoredPosition(parentPos + RaiseTracker.Icon.Position, RaiseTracker.Icon.Size, RaiseTracker.Icon.Anchor);
+                (Vector2 iconPos, Vector2 iconSize) = GetIconDrawData(Position, frameSize, RaiseTracker.Icon);
 
                 drawActions.Add((RaiseTracker.Icon.StrataLevel, () =>
                 {
-                    DrawHelper.DrawInWindow(RaiseTracker.Icon.ID, iconPos, RaiseTracker.Icon.Size, false, (drawList) =>
+                    DrawHelper.DrawInWindow(RaiseTracker.Icon.ID, iconPos, iconSize, false, (drawList) =>
                     {
-                        DrawHelper.DrawIcon(411, iconPos, RaiseTracker.Icon.Size, true, drawList);
+                        DrawHelper.DrawIcon(411, iconPos, iconSize, true, drawList);
                     });
                 }
                 ));
@@ -506,14 +509,13 @@ namespace DelvUI.Interface.Party
             bool showingInvuln = ShowingInvuln();
             if (showingInvuln && InvulnTracker.Icon.Enabled)
             {
-                Vector2 parentPos = Utils.GetAnchoredPosition(Position, -_configs.HealthBar.Size, InvulnTracker.Icon.FrameAnchor);
-                Vector2 iconPos = Utils.GetAnchoredPosition(parentPos + InvulnTracker.Icon.Position, InvulnTracker.Icon.Size, InvulnTracker.Icon.Anchor);
+                (Vector2 iconPos, Vector2 iconSize) = GetIconDrawData(Position, frameSize, InvulnTracker.Icon);
 
                 drawActions.Add((InvulnTracker.Icon.StrataLevel, () =>
                 {
-                    DrawHelper.DrawInWindow(InvulnTracker.Icon.ID, iconPos, InvulnTracker.Icon.Size, false, (drawList) =>
+                    DrawHelper.DrawInWindow(InvulnTracker.Icon.ID, iconPos, iconSize, false, (drawList) =>
                     {
-                        DrawHelper.DrawIcon(Member.InvulnStatus!.InvulnIcon, iconPos, InvulnTracker.Icon.Size, true, drawList);
+                        DrawHelper.DrawIcon(Member.InvulnStatus!.InvulnIcon, iconPos, iconSize, true, drawList);
                     });
                 }
                 ));
@@ -522,7 +524,7 @@ namespace DelvUI.Interface.Party
             // mana
             if (ShowMana())
             {
-                Vector2 parentPos = Utils.GetAnchoredPosition(Position, -_configs.HealthBar.Size, _configs.ManaBar.HealthBarAnchor);
+                Vector2 parentPos = Utils.GetAnchoredPosition(Position, -frameSize, _configs.ManaBar.HealthBarAnchor);
                 drawActions.Add((_configs.ManaBar.StrataLevel, () =>
                 {
                     _manaBarHud.Actor = character;
@@ -534,7 +536,7 @@ namespace DelvUI.Interface.Party
             }
 
             // buffs / debuffs
-            Vector2 buffsPos = Utils.GetAnchoredPosition(Position, -_configs.HealthBar.Size, _configs.Buffs.HealthBarAnchor);
+            Vector2 buffsPos = Utils.GetAnchoredPosition(Position, -frameSize, _configs.Buffs.HealthBarAnchor);
             drawActions.Add((_configs.Buffs.StrataLevel, () =>
             {
                 _buffsListHud.Actor = character;
@@ -543,7 +545,7 @@ namespace DelvUI.Interface.Party
             }
             ));
 
-            Vector2 debuffsPos = Utils.GetAnchoredPosition(Position, -_configs.HealthBar.Size, _configs.Debuffs.HealthBarAnchor);
+            Vector2 debuffsPos = Utils.GetAnchoredPosition(Position, -frameSize, _configs.Debuffs.HealthBarAnchor);
             drawActions.Add((_configs.Debuffs.StrataLevel, () =>
             {
                 _debuffsListHud.Actor = character;
@@ -553,7 +555,7 @@ namespace DelvUI.Interface.Party
             ));
 
             // cooldown list
-            Vector2 cooldownListPos = Utils.GetAnchoredPosition(Position, -_configs.HealthBar.Size, _configs.CooldownList.HealthBarAnchor);
+            Vector2 cooldownListPos = Utils.GetAnchoredPosition(Position, -frameSize, _configs.CooldownList.HealthBarAnchor);
             drawActions.Add((_configs.CooldownList.StrataLevel, () =>
             {
                 _cooldownListHud.Actor = character;
@@ -563,7 +565,7 @@ namespace DelvUI.Interface.Party
             ));
 
             // castbar
-            Vector2 castbarPos = Utils.GetAnchoredPosition(Position, -_configs.HealthBar.Size, _configs.CastBar.HealthBarAnchor);
+            Vector2 castbarPos = Utils.GetAnchoredPosition(Position, -frameSize, _configs.CastBar.HealthBarAnchor);
             drawActions.Add((_configs.CastBar.StrataLevel, () =>
             {
                 _castbarHud.Actor = character;
@@ -584,7 +586,7 @@ namespace DelvUI.Interface.Party
                         playerName = true;
                     }
 
-                    _nameLabelHud.Draw(Position, _configs.HealthBar.Size, character, Member.Name, isPlayerName: playerName);
+                    _nameLabelHud.Draw(Position, frameSize, character, Member.Name, isPlayerName: playerName);
                 }
                 ));
             }
@@ -594,7 +596,7 @@ namespace DelvUI.Interface.Party
             {
                 drawActions.Add((_configs.HealthBar.HealthLabelConfig.StrataLevel, () =>
                 {
-                    _healthLabelHud.Draw(Position, _configs.HealthBar.Size, character, null, Member.HP, Member.MaxHP);
+                    _healthLabelHud.Draw(Position, frameSize, character, null, Member.HP, Member.MaxHP);
                 }
                 ));
             }
@@ -607,7 +609,7 @@ namespace DelvUI.Interface.Party
                 drawActions.Add((_configs.HealthBar.OrderNumberConfig.StrataLevel, () =>
                 {
                     _configs.HealthBar.OrderNumberConfig.SetText(str);
-                    _orderLabelHud.Draw(Position, _configs.HealthBar.Size, character);
+                    _orderLabelHud.Draw(Position, frameSize, character);
                 }
                 ));
             }
@@ -619,7 +621,7 @@ namespace DelvUI.Interface.Party
                 drawActions.Add((PlayerStatus.Label.StrataLevel, () =>
                 {
                     PlayerStatus.Label.SetText(statusString);
-                    _statusLabelHud.Draw(Position, _configs.HealthBar.Size);
+                    _statusLabelHud.Draw(Position, frameSize);
                 }
                 ));
             }
@@ -632,7 +634,7 @@ namespace DelvUI.Interface.Party
                 drawActions.Add((RaiseTracker.Icon.NumericLabel.StrataLevel, () =>
                 {
                     RaiseTracker.Icon.NumericLabel.SetValue(duration);
-                    _raiseLabelHud.Draw(Position, _configs.HealthBar.Size);
+                    _raiseLabelHud.Draw(Position, frameSize);
                 }
                 ));
             }
@@ -645,7 +647,7 @@ namespace DelvUI.Interface.Party
                 drawActions.Add((InvulnTracker.Icon.NumericLabel.StrataLevel, () =>
                 {
                     InvulnTracker.Icon.NumericLabel.SetValue(duration);
-                    _invulnLabelHud.Draw(Position, _configs.HealthBar.Size);
+                    _invulnLabelHud.Draw(Position, frameSize);
                 }
                 ));
             }

@@ -133,12 +133,14 @@ namespace DelvUI.Interface.Bars
 
         public void Draw(Vector2 origin)
         {
+            Vector2 scaledBgOffset = GlobalHudScaleHelper.Scale(BackgroundRect.Position);
+            Vector2 scaledSize = GlobalHudScaleHelper.Scale(BackgroundRect.Size);
             var barPos = Utils.GetAnchoredPosition(origin, BackgroundRect.Size, Anchor);
-            var backgroundPos = barPos + BackgroundRect.Position;
+            var backgroundPos = barPos + scaledBgOffset;
 
-            DrawRects(barPos, backgroundPos);
+            DrawRects(barPos, backgroundPos, scaledSize);
 
-            // labels
+            // labels — pass logical bar size; LabelHud applies global scale in anchor math
             foreach (LabelHud label in LabelHuds)
             {
                 label.Draw(backgroundPos, BackgroundRect.Size, Actor, null, (uint?)Current, (uint?)Max);
@@ -149,16 +151,18 @@ namespace DelvUI.Interface.Bars
         {
             List<(StrataLevel, Action)> drawActions = new List<(StrataLevel, Action)>();
 
+            Vector2 scaledBgOffset = GlobalHudScaleHelper.Scale(BackgroundRect.Position);
+            Vector2 scaledSize = GlobalHudScaleHelper.Scale(BackgroundRect.Size);
             var barPos = Utils.GetAnchoredPosition(origin, BackgroundRect.Size, Anchor);
-            var backgroundPos = barPos + BackgroundRect.Position;
+            var backgroundPos = barPos + scaledBgOffset;
 
             drawActions.Add((strataLevel, () =>
             {
-                DrawRects(barPos, backgroundPos);
+                DrawRects(barPos, backgroundPos, scaledSize);
             }
             ));
 
-            // labels
+            // labels — pass logical bar size; LabelHud applies global scale in anchor math
             foreach (LabelHud label in LabelHuds)
             {
                 drawActions.Add((label.GetConfig().StrataLevel, () =>
@@ -171,43 +175,61 @@ namespace DelvUI.Interface.Bars
             return drawActions;
         }
 
-        private void DrawRects(Vector2 barPos, Vector2 backgroundPos)
+        private void DrawRects(Vector2 barPos, Vector2 backgroundPos, Vector2 scaledBackgroundSize)
         {
-            DrawHelper.DrawInWindow(ID, backgroundPos, BackgroundRect.Size, NeedsInputs, (drawList) =>
+            DrawHelper.DrawInWindow(ID, backgroundPos, scaledBackgroundSize, NeedsInputs, (drawList) =>
             {
-                float rounding = Math.Clamp(CornerRounding, 0f, Math.Min(BackgroundRect.Size.X, BackgroundRect.Size.Y) / 2f);
+                float rounding = Math.Clamp(CornerRounding, 0f, Math.Min(scaledBackgroundSize.X, scaledBackgroundSize.Y) / 2f);
+                Vector2 shadowOffset = GlobalHudScaleHelper.Scale(new Vector2(ShadowConfig?.Offset ?? 0f));
+                float shadowThickness = GlobalHudScaleHelper.Scale(ShadowConfig?.Thickness ?? 0f);
+                float borderThickness = GlobalHudScaleHelper.Scale(BorderThickness);
+                float glowSize = GlobalHudScaleHelper.Scale(GlowSize);
+
                 // Draw background
-                drawList.AddRectFilled(backgroundPos, backgroundPos + BackgroundRect.Size, BackgroundRect.Color.Base, rounding);
+                drawList.AddRectFilled(backgroundPos, backgroundPos + scaledBackgroundSize, BackgroundRect.Color.Base, rounding);
 
                 // Draw Shadow
                 if (ShadowConfig != null && ShadowConfig.Enabled)
                 {
                     // Right Side
-                    drawList.AddRectFilled(backgroundPos + new Vector2(BackgroundRect.Size.X, ShadowConfig.Offset), backgroundPos + BackgroundRect.Size + new Vector2(ShadowConfig.Offset, ShadowConfig.Offset) + new Vector2(ShadowConfig.Thickness - 1, ShadowConfig.Thickness - 1), ShadowConfig.Color.Base);
+                    drawList.AddRectFilled(
+                        backgroundPos + new Vector2(scaledBackgroundSize.X, shadowOffset.Y),
+                        backgroundPos + scaledBackgroundSize + shadowOffset + new Vector2(shadowThickness - 1f, shadowThickness - 1f),
+                        ShadowConfig.Color.Base);
 
                     // Bottom Size
-                    drawList.AddRectFilled(backgroundPos + new Vector2(ShadowConfig.Offset, BackgroundRect.Size.Y), backgroundPos + BackgroundRect.Size + new Vector2(ShadowConfig.Offset, ShadowConfig.Offset) + new Vector2(ShadowConfig.Thickness - 1, ShadowConfig.Thickness - 1), ShadowConfig.Color.Base);
+                    drawList.AddRectFilled(
+                        backgroundPos + new Vector2(shadowOffset.X, scaledBackgroundSize.Y),
+                        backgroundPos + scaledBackgroundSize + shadowOffset + new Vector2(shadowThickness - 1f, shadowThickness - 1f),
+                        ShadowConfig.Color.Base);
                 }
 
                 // Draw foregrounds
                 foreach (Rect rect in ForegroundRects)
                 {
-                    DrawHelper.DrawBarTexture(barPos + rect.Position, rect.Size, rect.Color, BarTextureName, BarTextureDrawMode, drawList, rounding);
+                    DrawHelper.DrawBarTexture(
+                        barPos + GlobalHudScaleHelper.Scale(rect.Position),
+                        GlobalHudScaleHelper.Scale(rect.Size),
+                        rect.Color,
+                        BarTextureName,
+                        BarTextureDrawMode,
+                        drawList,
+                        rounding);
                 }
 
                 // Draw Border
                 if (DrawBorder)
                 {
-                    drawList.AddRect(backgroundPos, backgroundPos + BackgroundRect.Size, BorderColor?.Base ?? 0xFF000000, rounding, ImDrawFlags.None, BorderThickness);
+                    drawList.AddRect(backgroundPos, backgroundPos + scaledBackgroundSize, BorderColor?.Base ?? 0xFF000000, rounding, ImDrawFlags.None, borderThickness);
                 }
 
                 // Draw Glow
                 if (GlowColor != null)
                 {
-                    var glowPosition = new Vector2(backgroundPos.X - 1, backgroundPos.Y - 1);
-                    var glowSize = new Vector2(BackgroundRect.Size.X + 2, BackgroundRect.Size.Y + 2);
+                    var glowPosition = backgroundPos - new Vector2(1f);
+                    var glowDrawSize = scaledBackgroundSize + new Vector2(2f);
 
-                    drawList.AddRect(glowPosition, glowPosition + glowSize, GlowColor.Base, 0, ImDrawFlags.None, GlowSize);
+                    drawList.AddRect(glowPosition, glowPosition + glowDrawSize, GlowColor.Base, 0, ImDrawFlags.None, glowSize);
                 }
             });
         }

@@ -1,4 +1,4 @@
-﻿using Dalamud.Game.ClientState.JobGauge.Types;
+using Dalamud.Game.ClientState.JobGauge.Types;
 using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Game.ClientState.Objects.Types;
 using DelvUI.Config;
@@ -59,7 +59,7 @@ namespace DelvUI.Interface.Jobs
 
         public override void DrawJobHud(Vector2 origin, IPlayerCharacter player)
         {
-            var position = origin + Config.Position;
+            var position = GlobalHudScaleHelper.ApplyOriginOffset(origin, Config.Position);
             if (Config.ChaosThrustBar.Enabled)
             {
                 DrawChaosThrustBar(position, player);

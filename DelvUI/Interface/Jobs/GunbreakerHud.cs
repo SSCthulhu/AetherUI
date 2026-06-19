@@ -1,4 +1,4 @@
-﻿using Dalamud.Game.ClientState.JobGauge.Types;
+using Dalamud.Game.ClientState.JobGauge.Types;
 using Dalamud.Game.ClientState.Objects.SubKinds;
 using DelvUI.Config;
 using DelvUI.Config.Attributes;
@@ -43,12 +43,12 @@ namespace DelvUI.Interface.Jobs
         {
             if (Config.PowderGauge.Enabled)
             {
-                DrawPowderGauge(origin + Config.Position, player);
+                DrawPowderGauge(GlobalHudScaleHelper.ApplyOriginOffset(origin, Config.Position), player);
             }
 
             if (Config.NoMercy.Enabled)
             {
-                DrawNoMercyBar(origin + Config.Position, player);
+                DrawNoMercyBar(GlobalHudScaleHelper.ApplyOriginOffset(origin, Config.Position), player);
             }
         }
 

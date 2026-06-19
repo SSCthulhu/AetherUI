@@ -1,4 +1,5 @@
 using Dalamud.Game.ClientState.Objects.Types;
+using DelvUI.Helpers;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using Lumina.Excel.Sheets;
 using System;
@@ -33,8 +34,9 @@ namespace DelvUI.Interface.GeneralElements
             }
 
             var range = MinimapLayout.ClampVisibleRange(_configuration.VisibleRangeYalms);
-            var minimapSize = MinimapLayout.ClampSize(_configuration.Size);
-            var markerIconSize = MinimapLayout.ClampMarkerIconSize(_configuration.MarkerIconSize);
+            var contentHalf = MinimapLayout.GetScaledContentHalf(_configuration.Size);
+            var markerIconSize = MinimapLayout.GetScaledMarkerIconSize(_configuration.MarkerIconSize);
+            var partyBlipRadius = MinimapLayout.GetScaledPlayerPinSize(_configuration.PlayerPinSize);
             var blips = new List<MinimapBlip>(8);
             var iconMarkers = new List<MinimapIconMarker>(MinimapLayout.MaxNativeMarkersPerFrame);
             var fateAreas = new List<MinimapFateArea>(8);
@@ -53,8 +55,6 @@ namespace DelvUI.Interface.GeneralElements
 
             if (hasMapTransform)
             {
-                var contentHalf = minimapSize * 0.5f;
-                var partyBlipRadius = MinimapLayout.ClampPlayerPinSize(_configuration.PlayerPinSize);
                 MinimapPartyBlips.TryCollect(player, contentHalf, mapUvMin, mapUvMax, offsetX, offsetY, sizeFactor, range, partyBlipRadius, blips);
                 MinimapEnemyBlips.TryCollect(player, contentHalf, mapUvMin, mapUvMax, offsetX, offsetY, sizeFactor, range, partyBlipRadius, blips);
             }
@@ -62,7 +62,6 @@ namespace DelvUI.Interface.GeneralElements
             if (_configuration.ShowNativeMarkers && hasMapTransform)
             {
                 _markerIconCache.BeginFrame();
-                var contentHalf = minimapSize * 0.5f;
                 var markerLimit = iconMarkers.Count + MinimapLayout.MaxNativeMarkersPerFrame;
 
                 MinimapFlagMarkers.TryCollect(contentHalf, mapUvMin, mapUvMax, player.Position, offsetX, offsetY, sizeFactor, range, markerIconSize, _markerIconCache, iconMarkers, markerLimit);

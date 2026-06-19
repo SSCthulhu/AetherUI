@@ -83,7 +83,7 @@ namespace DelvUI.Interface.GeneralElements
             }
 
             // Check if mouse is hovering over the box properly
-            var startPos = Utils.GetAnchoredPosition(origin + Config.Position, Config.Size, Config.Anchor);
+            var startPos = Utils.GetAnchoredPosition(GlobalHudScaleHelper.ApplyOriginOffset(origin, Config.Position), Config.Size, Config.Anchor);
             var (areaStart, areaEnd) = Config.MouseoverAreaConfig.GetArea(startPos, Config.Size);
             bool isHovering = ImGui.IsMouseHoveringRect(areaStart, areaEnd);
             bool ignoreMouseover = Config.MouseoverAreaConfig.Enabled && Config.MouseoverAreaConfig.Ignore;
@@ -114,8 +114,10 @@ namespace DelvUI.Interface.GeneralElements
             // override
         }
 
-        private void DrawCharacter(Vector2 pos, Character character)
+        private void DrawCharacter(Vector2 origin, Character character)
         {
+            Vector2 frameOrigin = GlobalHudScaleHelper.ApplyOriginOffset(origin, Config.Position);
+
             uint currentHp = character.CurrentHp;
             uint maxHp = character.MaxHp;
 
@@ -138,14 +140,14 @@ namespace DelvUI.Interface.GeneralElements
                 Config.ColorByHealth
             ) ?? Config.FillColor;
 
-            Rect background = new Rect(Config.Position, Config.Size, BackgroundColor(character));
+            Rect background = new Rect(Vector2.Zero, Config.Size, BackgroundColor(character));
             if (Config.RangeConfig.Enabled || Config.EnemyRangeConfig.Enabled)
             {
                 fillColor = GetDistanceColor(character, fillColor);
                 background.Color = GetDistanceColor(character, background.Color);
             }
 
-            Rect healthFill = BarUtilities.GetFillRect(Config.Position, Config.Size, Config.FillDirection, fillColor, currentHp, maxHp);
+            Rect healthFill = BarUtilities.GetFillRect(Vector2.Zero, Config.Size, Config.FillDirection, fillColor, currentHp, maxHp);
 
             BarHud bar = new BarHud(Config, character);
             bar.NeedsInputs = true;
@@ -157,8 +159,8 @@ namespace DelvUI.Interface.GeneralElements
             {
                 Vector2 healthMissingSize = Config.Size - BarUtilities.GetFillDirectionOffset(healthFill.Size, Config.FillDirection);
                 Vector2 healthMissingPos = Config.FillDirection.IsInverted()
-                    ? Config.Position
-                    : Config.Position + BarUtilities.GetFillDirectionOffset(healthFill.Size, Config.FillDirection);
+                    ? Vector2.Zero
+                    : BarUtilities.GetFillDirectionOffset(healthFill.Size, Config.FillDirection);
 
                 PluginConfigColor missingHealthColor = Config.UseJobColorAsMissingHealthColor && character is BattleChara
                     ? GlobalColors.Instance.SafeColorForJobId(character!.ClassJob.RowId)
@@ -192,11 +194,11 @@ namespace DelvUI.Interface.GeneralElements
             BarUtilities.AddShield(bar, Config, Config.ShieldConfig, character, healthFill.Size);
 
             // draw action
-            AddDrawActions(bar.GetDrawActions(pos, Config.StrataLevel));
+            AddDrawActions(bar.GetDrawActions(frameOrigin, Config.StrataLevel));
 
             // mouseover area
             BarHud? mouseoverAreaBar = Config.MouseoverAreaConfig.GetBar(
-                Config.Position,
+                Vector2.Zero,
                 Config.Size,
                 Config.ID + "_mouseoverArea",
                 Config.Anchor
@@ -204,7 +206,7 @@ namespace DelvUI.Interface.GeneralElements
 
             if (mouseoverAreaBar != null)
             {
-                AddDrawActions(mouseoverAreaBar.GetDrawActions(pos, StrataLevel.HIGHEST));
+                AddDrawActions(mouseoverAreaBar.GetDrawActions(frameOrigin, StrataLevel.HIGHEST));
             }
 
             // role/job icon
@@ -217,15 +219,19 @@ namespace DelvUI.Interface.GeneralElements
 
                 if (iconId > 0)
                 {
-                    var barPos = Utils.GetAnchoredPosition(pos, Config.Size, Config.Anchor);
-                    var parentPos = Utils.GetAnchoredPosition(barPos + Config.Position, -Config.Size, Config.RoleIconConfig.FrameAnchor);
-                    var iconPos = Utils.GetAnchoredPosition(parentPos + Config.RoleIconConfig.Position, Config.RoleIconConfig.Size, Config.RoleIconConfig.Anchor);
+                    Vector2 scaledIconSize = GlobalHudScaleHelper.Scale(Config.RoleIconConfig.Size);
+                    var barPos = Utils.GetAnchoredPosition(frameOrigin, Config.Size, Config.Anchor);
+                    var parentPos = Utils.GetAnchoredPosition(barPos, -Config.Size, Config.RoleIconConfig.FrameAnchor);
+                    var iconPos = Utils.GetAnchoredPosition(
+                        parentPos + GlobalHudScaleHelper.Scale(Config.RoleIconConfig.Position),
+                        Config.RoleIconConfig.Size,
+                        Config.RoleIconConfig.Anchor);
 
                     AddDrawAction(Config.RoleIconConfig.StrataLevel, () =>
                     {
-                        DrawHelper.DrawInWindow(ID + "_jobIcon", iconPos, Config.RoleIconConfig.Size, false, (drawList) =>
+                        DrawHelper.DrawInWindow(ID + "_jobIcon", iconPos, scaledIconSize, false, (drawList) =>
                         {
-                            DrawHelper.DrawIcon(iconId, iconPos, Config.RoleIconConfig.Size, false, drawList);
+                            DrawHelper.DrawIcon(iconId, iconPos, scaledIconSize, false, drawList);
                         });
                     });
                 }
@@ -237,15 +243,19 @@ namespace DelvUI.Interface.GeneralElements
                 uint? iconId = Config.SignIconConfig.IconID(character);
                 if (iconId.HasValue)
                 {
-                    var barPos = Utils.GetAnchoredPosition(pos, Config.Size, Config.Anchor);
-                    var parentPos = Utils.GetAnchoredPosition(barPos + Config.Position, -Config.Size, Config.SignIconConfig.FrameAnchor);
-                    var iconPos = Utils.GetAnchoredPosition(parentPos + Config.SignIconConfig.Position, Config.SignIconConfig.Size, Config.SignIconConfig.Anchor);
+                    Vector2 scaledIconSize = GlobalHudScaleHelper.Scale(Config.SignIconConfig.Size);
+                    var barPos = Utils.GetAnchoredPosition(frameOrigin, Config.Size, Config.Anchor);
+                    var parentPos = Utils.GetAnchoredPosition(barPos, -Config.Size, Config.SignIconConfig.FrameAnchor);
+                    var iconPos = Utils.GetAnchoredPosition(
+                        parentPos + GlobalHudScaleHelper.Scale(Config.SignIconConfig.Position),
+                        Config.SignIconConfig.Size,
+                        Config.SignIconConfig.Anchor);
 
                     AddDrawAction(Config.SignIconConfig.StrataLevel, () =>
                     {
-                        DrawHelper.DrawInWindow(ID + "_signIcon", iconPos, Config.SignIconConfig.Size, false, (drawList) =>
+                        DrawHelper.DrawInWindow(ID + "_signIcon", iconPos, scaledIconSize, false, (drawList) =>
                         {
-                            DrawHelper.DrawIcon(iconId.Value, iconPos, Config.SignIconConfig.Size, false, drawList);
+                            DrawHelper.DrawIcon(iconId.Value, iconPos, scaledIconSize, false, drawList);
                         });
                     });
                 }
@@ -331,8 +341,10 @@ namespace DelvUI.Interface.GeneralElements
             }
         }
 
-        private void DrawFriendlyNPC(Vector2 pos, IGameObject? actor)
+        private void DrawFriendlyNPC(Vector2 origin, IGameObject? actor)
         {
+            Vector2 frameOrigin = GlobalHudScaleHelper.ApplyOriginOffset(origin, Config.Position);
+
             GetNPCHpValues(actor, out uint currentHp, out uint maxHp);
 
             BarHud bar = new BarHud(Config, actor);
@@ -340,7 +352,7 @@ namespace DelvUI.Interface.GeneralElements
 
             if (maxHp == 0)
             {
-                bar.AddForegrounds(new Rect(Config.Position, Config.Size, ColorUtils.ColorForActor(actor)));
+                bar.AddForegrounds(new Rect(Vector2.Zero, Config.Size, ColorUtils.ColorForActor(actor)));
             }
             else
             {
@@ -356,15 +368,15 @@ namespace DelvUI.Interface.GeneralElements
                     colorByHealthConfig: Config.ColorByHealth
                 ) ?? Config.FillColor;
 
-                Rect background = new Rect(Config.Position, Config.Size, Config.BackgroundColor);
-                Rect healthFill = BarUtilities.GetFillRect(Config.Position, Config.Size, Config.FillDirection, fillColor, currentHp, maxHp);
+                Rect background = new Rect(Vector2.Zero, Config.Size, Config.BackgroundColor);
+                Rect healthFill = BarUtilities.GetFillRect(Vector2.Zero, Config.Size, Config.FillDirection, fillColor, currentHp, maxHp);
 
                 bar.NeedsInputs = true;
                 bar.SetBackground(background);
                 bar.AddForegrounds(healthFill);
             }
 
-            AddDrawActions(bar.GetDrawActions(pos, Config.StrataLevel));
+            AddDrawActions(bar.GetDrawActions(frameOrigin, Config.StrataLevel));
         }
 
         private PluginConfigColor BackgroundColor(Character? chara)
@@ -452,11 +464,14 @@ namespace DelvUI.Interface.GeneralElements
 
             Vector2 pos = GetTankStanceCornerOrigin(origin);
             var (verticalDir, horizontalDir) = GetTankStanceLinesDirections();
+            float thickness = GlobalHudScaleHelper.Scale(config.Thickess);
+            Vector2 indicatorSize = GlobalHudScaleHelper.Scale(config.Size);
+            float scaledOne = GlobalHudScaleHelper.Scale(1f);
 
-            pos = new Vector2(pos.X + config.Thickess * -horizontalDir, pos.Y + config.Thickess * -verticalDir);
-            Vector2 vSize = new Vector2(config.Thickess * horizontalDir, (config.Size.Y + config.Thickess) * verticalDir);
+            pos = new Vector2(pos.X + thickness * -horizontalDir, pos.Y + thickness * -verticalDir);
+            Vector2 vSize = new Vector2(thickness * horizontalDir, (indicatorSize.Y + thickness) * verticalDir);
             Vector2 vEndPos = pos + vSize;
-            Vector2 hSize = new Vector2((config.Size.X + config.Thickess) * horizontalDir, config.Thickess * verticalDir);
+            Vector2 hSize = new Vector2((indicatorSize.X + thickness) * horizontalDir, thickness * verticalDir);
             Vector2 hEndPos = pos + hSize;
 
             Vector2 startPos = new Vector2(Math.Min(pos.X, hEndPos.X), Math.Min(pos.Y, hEndPos.Y));
@@ -476,7 +491,7 @@ namespace DelvUI.Interface.GeneralElements
 
                     if (config.Corner == TankStanceCorner.TopRight)
                     {
-                        drawList.AddLine(pos, pos + new Vector2(0, vSize.Y + 1), 0xFF000000);
+                        drawList.AddLine(pos, pos + new Vector2(0, vSize.Y + scaledOne), 0xFF000000);
                     }
                     else
                     {
@@ -490,7 +505,7 @@ namespace DelvUI.Interface.GeneralElements
 
                     if (config.Corner == TankStanceCorner.BottomLeft)
                     {
-                        drawList.AddLine(pos, pos + new Vector2(hSize.X + 1, 0), 0xFF000000);
+                        drawList.AddLine(pos, pos + new Vector2(hSize.X + scaledOne, 0), 0xFF000000);
                     }
                     else
                     {
@@ -499,7 +514,7 @@ namespace DelvUI.Interface.GeneralElements
 
                     if (config.Corner == TankStanceCorner.BottomRight)
                     {
-                        drawList.AddLine(pos + new Vector2(0, 1), pos + new Vector2(0, hSize.Y), 0xFF000000);
+                        drawList.AddLine(pos + new Vector2(0, scaledOne), pos + new Vector2(0, hSize.Y), 0xFF000000);
                     }
                     else
                     {
@@ -513,13 +528,15 @@ namespace DelvUI.Interface.GeneralElements
 
         private Vector2 GetTankStanceCornerOrigin(Vector2 origin)
         {
-            var topLeft = Utils.GetAnchoredPosition(origin + Config.Position, Config.Size, Config.Anchor);
+            Vector2 topLeft = Utils.GetAnchoredPosition(GlobalHudScaleHelper.ApplyOriginOffset(origin, Config.Position), Config.Size, Config.Anchor);
+            Vector2 scaledFrameSize = GlobalHudScaleHelper.Scale(Config.Size);
+            float scaledOne = GlobalHudScaleHelper.Scale(1f);
 
             return Config.TankStanceIndicatorConfig.Corner switch
             {
-                TankStanceCorner.TopRight => topLeft + new Vector2(Config.Size.X - 1, 0),
-                TankStanceCorner.BottomLeft => topLeft + new Vector2(0, Config.Size.Y - 1),
-                TankStanceCorner.BottomRight => topLeft + Config.Size - Vector2.One,
+                TankStanceCorner.TopRight => topLeft + new Vector2(scaledFrameSize.X - scaledOne, 0),
+                TankStanceCorner.BottomLeft => topLeft + new Vector2(0, scaledFrameSize.Y - scaledOne),
+                TankStanceCorner.BottomRight => topLeft + scaledFrameSize - new Vector2(scaledOne),
                 _ => topLeft
             };
         }

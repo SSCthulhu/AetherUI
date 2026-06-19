@@ -337,8 +337,12 @@ namespace DelvUI.Interface.GeneralElements
             float mpRatio = Math.Clamp(currentMp / (float)maxMp, 0f, 1f);
             float shieldRatio = Config.ShowShieldOverlay ? Math.Clamp(Utils.ActorShieldValue(character), 0f, 1f) : 0f;
 
-            Vector2 boundsSize = CalculateBoundsSize();
-            Vector2 topLeft = Utils.GetAnchoredPosition(origin + ParentPos() + Config.Position, boundsSize, Config.Anchor);
+            Vector2 logicalBoundsSize = CalculateBoundsSize();
+            Vector2 topLeft = Utils.GetAnchoredPosition(
+                GlobalHudScaleHelper.ApplyOriginOffset(origin, Config.Position),
+                logicalBoundsSize,
+                Config.Anchor);
+            Vector2 boundsSize = GlobalHudScaleHelper.Scale(logicalBoundsSize);
             Vector2 center = topLeft + boundsSize / 2f;
 
             PluginConfigColor healthFillColor = ColorUtils.ColorForCharacter(
@@ -350,10 +354,10 @@ namespace DelvUI.Interface.GeneralElements
                 Config.ColorByHealth
             ) ?? GlobalColors.Instance.SafeColorForJobId(character.ClassJob.RowId);
 
-            float healthRadius = Config.HealthRadius;
-            float activeOuterRadius = GetActiveOuterRadius();
-            float castRadius = activeOuterRadius + Config.CastArcThickness * 0.5f;
-            float lbRadius = activeOuterRadius + Config.LimitBreakArcThickness * 0.5f;
+            float healthRadius = Scaled(Config.HealthRadius);
+            float activeOuterRadius = GetScaledActiveOuterRadius();
+            float castRadius = activeOuterRadius + Scaled(Config.CastArcThickness) * 0.5f;
+            float lbRadius = activeOuterRadius + Scaled(Config.LimitBreakArcThickness) * 0.5f;
 
             AddDrawAction(Config.StrataLevel, () =>
             {
@@ -439,7 +443,7 @@ namespace DelvUI.Interface.GeneralElements
                     center,
                     radius,
                     Config.HealthBorderColor.Base,
-                    Config.HealthBorderThickness,
+                    ScaledBorderThickness(Config.HealthBorderThickness),
                     true
                 );
             }
@@ -452,16 +456,18 @@ namespace DelvUI.Interface.GeneralElements
                 return;
             }
 
-            float ringRadius = healthRadius + Config.ManaRingGap + Config.ManaRingThickness * 0.5f;
+            float ringThickness = Scaled(Config.ManaRingThickness);
+            float ringGap = Scaled(Config.ManaRingGap);
+            float ringRadius = healthRadius + ringGap + ringThickness * 0.5f;
             float start = -(float)Math.PI / 2f;
             float end = start + (float)Math.PI * 2f;
 
-            DrawArc(drawList, center, ringRadius, start, end, Config.ManaBackgroundColor.Base, Config.ManaRingThickness);
+            DrawArc(drawList, center, ringRadius, start, end, Config.ManaBackgroundColor.Base, ringThickness);
 
             if (mpRatio > 0f)
             {
                 float filledEnd = start + ((float)Math.PI * 2f * mpRatio);
-                DrawArc(drawList, center, ringRadius, start, filledEnd, Config.ManaColor.Base, Config.ManaRingThickness);
+                DrawArc(drawList, center, ringRadius, start, filledEnd, Config.ManaColor.Base, ringThickness);
             }
 
             if (true)
@@ -472,20 +478,20 @@ namespace DelvUI.Interface.GeneralElements
                     DrawArc(
                         drawList,
                         center,
-                        ringRadius - (Config.ManaRingThickness * 0.20f),
+                        ringRadius - (ringThickness * 0.20f),
                         start,
                         filledEnd,
                         ModulateBorderColor(Config.ManaColor.Base, 1.35f, 0.45f),
-                        Math.Max(1f, Config.ManaRingThickness * 0.24f)
+                        Math.Max(Scaled(1f), ringThickness * 0.24f)
                     );
                     DrawArc(
                         drawList,
                         center,
-                        ringRadius + (Config.ManaRingThickness * 0.08f),
+                        ringRadius + (ringThickness * 0.08f),
                         start,
                         filledEnd,
                         ModulateBorderColor(Config.ManaColor.Base, 0.85f, 0.28f),
-                        Math.Max(1f, Config.ManaRingThickness * 0.16f)
+                        Math.Max(Scaled(1f), ringThickness * 0.16f)
                     );
                 }
             }
@@ -498,9 +504,9 @@ namespace DelvUI.Interface.GeneralElements
                     ringRadius,
                     start,
                     end,
-                    Config.ManaRingThickness,
+                    ringThickness,
                     Config.ManaBorderColor.Base,
-                    Config.ManaBorderThickness,
+                    ScaledBorderThickness(Config.ManaBorderThickness),
                     true
                 );
             }
@@ -512,6 +518,11 @@ namespace DelvUI.Interface.GeneralElements
             {
                 return;
             }
+
+            float arcThickness = Scaled(Config.CastArcThickness);
+            int borderThickness = ScaledBorderThickness(Config.CastBorderThickness);
+            float minMarkerRadius = Scaled(2f);
+            float minAccentThickness = Scaled(1f);
 
             bool previewMode = Config.PreviewCastArc;
             float currentCast;
@@ -536,13 +547,13 @@ namespace DelvUI.Interface.GeneralElements
             float fillStart = start;
             float fillEnd = start;
 
-            DrawArc(drawList, center, radius, start, end, Config.CastArcBackgroundColor.Base, Config.CastArcThickness);
+            DrawArc(drawList, center, radius, start, end, Config.CastArcBackgroundColor.Base, arcThickness);
 
             if (ratio > 0f)
             {
                 (fillStart, fillEnd) = ResolveDirectionalArc(start, end, ratio, Config.CastFillDirection);
                 hasCastFill = fillEnd > fillStart;
-                DrawArc(drawList, center, radius, fillStart, fillEnd, Config.CastArcColor.Base, Config.CastArcThickness);
+                DrawArc(drawList, center, radius, fillStart, fillEnd, Config.CastArcColor.Base, arcThickness);
 
                 if (Config.ShowSlidecastMarker && Config.SlidecastTime > 0)
                 {
@@ -554,7 +565,7 @@ namespace DelvUI.Interface.GeneralElements
                         center.Y + MathF.Sin(markerAngle) * radius
                     );
 
-                    drawList.AddCircleFilled(markerPos, Math.Max(2f, Config.CastArcThickness * 0.2f), Config.SlidecastColor.Base, 16);
+                    drawList.AddCircleFilled(markerPos, Math.Max(minMarkerRadius, arcThickness * 0.2f), Config.SlidecastColor.Base, 16);
                 }
             }
 
@@ -565,20 +576,20 @@ namespace DelvUI.Interface.GeneralElements
                     DrawArc(
                         drawList,
                         center,
-                        radius + (Config.CastArcThickness * 0.08f),
+                        radius + (arcThickness * 0.08f),
                         fillStart,
                         fillEnd,
                         ModulateBorderColor(Config.CastArcBackgroundColor.Base, 0.55f, 0.58f),
-                        Math.Max(1f, Config.CastArcThickness * 0.18f)
+                        Math.Max(minAccentThickness, arcThickness * 0.18f)
                     );
                     DrawArc(
                         drawList,
                         center,
-                        radius - (Config.CastArcThickness * 0.18f),
+                        radius - (arcThickness * 0.18f),
                         fillStart,
                         fillEnd,
                         ModulateBorderColor(Config.CastArcColor.Base, 1.20f, 0.34f),
-                        Math.Max(1f, Config.CastArcThickness * 0.22f)
+                        Math.Max(minAccentThickness, arcThickness * 0.22f)
                     );
                 }
 
@@ -589,18 +600,18 @@ namespace DelvUI.Interface.GeneralElements
                         center,
                         radius,
                         start,
-                        Config.CastArcThickness,
+                        arcThickness,
                         ModulateBorderColor(Config.CastBorderColor.Base, 1.08f, 0.85f),
-                        Math.Max(1f, Config.CastBorderThickness * 0.9f)
+                        Math.Max(minAccentThickness, borderThickness * 0.9f)
                     );
                     DrawArcEndCap(
                         drawList,
                         center,
                         radius,
                         end,
-                        Config.CastArcThickness,
+                        arcThickness,
                         ModulateBorderColor(Config.CastBorderColor.Base, 1.08f, 0.85f),
-                        Math.Max(1f, Config.CastBorderThickness * 0.9f)
+                        Math.Max(minAccentThickness, borderThickness * 0.9f)
                     );
                 }
             }
@@ -610,7 +621,7 @@ namespace DelvUI.Interface.GeneralElements
                 uint borderColor = reachedSlidecastWindow
                     ? Config.SlidecastBorderColor.Base
                     : Config.CastBorderColor.Base;
-                DrawArcBorder(drawList, center, radius, start, end, Config.CastArcThickness, borderColor, Config.CastBorderThickness, true);
+                DrawArcBorder(drawList, center, radius, start, end, arcThickness, borderColor, borderThickness, true);
             }
         }
 
@@ -620,6 +631,10 @@ namespace DelvUI.Interface.GeneralElements
             {
                 return;
             }
+
+            float arcThickness = Scaled(Config.LimitBreakArcThickness);
+            int borderThickness = ScaledBorderThickness(Config.LimitBreakBorderThickness);
+            float minAccentThickness = Scaled(1f);
 
             bool previewMode = Config.PreviewLimitBreakArc;
             int bars;
@@ -665,7 +680,7 @@ namespace DelvUI.Interface.GeneralElements
                     continue;
                 }
 
-                DrawArc(drawList, center, radius, segStart, segEnd, Config.LimitBreakBackgroundColor.Base, Config.LimitBreakArcThickness);
+                DrawArc(drawList, center, radius, segStart, segEnd, Config.LimitBreakBackgroundColor.Base, arcThickness);
 
                 if (Config.ShowLimitBreakBorder)
                 {
@@ -675,9 +690,9 @@ namespace DelvUI.Interface.GeneralElements
                         radius,
                         segStart,
                         segEnd,
-                        Config.LimitBreakArcThickness,
+                        arcThickness,
                         Config.LimitBreakBorderColor.Base,
-                        Config.LimitBreakBorderThickness,
+                        borderThickness,
                         true
                     );
                 }
@@ -715,36 +730,36 @@ namespace DelvUI.Interface.GeneralElements
                     ? Config.LimitBreakColor.Base
                     : Config.PartialLimitBreakColor.Base;
 
-                DrawArc(drawList, center, radius, fillStart, fillEnd, fillColor, Config.LimitBreakArcThickness);
+                DrawArc(drawList, center, radius, fillStart, fillEnd, fillColor, arcThickness);
 
                 if (true)
                 {
                     DrawArc(
                         drawList,
                         center,
-                        radius + (Config.LimitBreakArcThickness * 0.18f),
+                        radius + (arcThickness * 0.18f),
                         segStart,
                         segEnd,
                         ModulateBorderColor(Config.LimitBreakBackgroundColor.Base, 0.55f, 0.58f),
-                        Math.Max(1f, Config.LimitBreakArcThickness * 0.20f)
+                        Math.Max(minAccentThickness, arcThickness * 0.20f)
                     );
 
                     DrawArc(
                         drawList,
                         center,
-                        radius - (Config.LimitBreakArcThickness * 0.20f),
+                        radius - (arcThickness * 0.20f),
                         fillStart,
                         fillEnd,
                         ModulateBorderColor(fillColor, 1.28f, 0.42f),
-                        Math.Max(1f, Config.LimitBreakArcThickness * 0.24f)
+                        Math.Max(minAccentThickness, arcThickness * 0.24f)
                     );
 
                     if (Config.ShowLimitBreakBorder)
                     {
-                        float capThickness = Math.Max(1f, Config.LimitBreakBorderThickness * 0.95f);
+                        float capThickness = Math.Max(minAccentThickness, borderThickness * 0.95f);
                         uint capColor = ModulateBorderColor(Config.LimitBreakBorderColor.Base, 1.08f, 0.82f);
-                        DrawArcEndCap(drawList, center, radius, segStart, Config.LimitBreakArcThickness, capColor, capThickness);
-                        DrawArcEndCap(drawList, center, radius, segEnd, Config.LimitBreakArcThickness, capColor, capThickness);
+                        DrawArcEndCap(drawList, center, radius, segStart, arcThickness, capColor, capThickness);
+                        DrawArcEndCap(drawList, center, radius, segEnd, arcThickness, capColor, capThickness);
                     }
                 }
             }
@@ -988,9 +1003,9 @@ namespace DelvUI.Interface.GeneralElements
             bool isActive = HasTankStance(battleChara);
             uint color = isActive ? Config.TankStanceActiveColor.Base : Config.TankStanceInactiveColor.Base;
 
-            float size = Math.Max(6f, Config.TankStanceIndicatorSize);
+            float size = Math.Max(Scaled(6f), Scaled(Config.TankStanceIndicatorSize));
             // Top-of-orb by default, with user-adjustable offset.
-            Vector2 pos = center + new Vector2(0f, -(healthRadius + size * 0.85f)) + Config.TankStanceIndicatorOffset;
+            Vector2 pos = center + new Vector2(0f, -(healthRadius + size * 0.85f)) + Scaled(Config.TankStanceIndicatorOffset);
             DrawShieldIndicator(drawList, pos, size, color, character.ClassJob.RowId);
         }
 
@@ -1031,6 +1046,22 @@ namespace DelvUI.Interface.GeneralElements
 
             return Config.HealthRadius;
         }
+
+        private float GetScaledActiveOuterRadius()
+        {
+            if (Config.ShowManaRing && Config.ManaRingThickness > 0f)
+            {
+                return Scaled(Config.HealthRadius + Config.ManaRingGap + Config.ManaRingThickness);
+            }
+
+            return Scaled(Config.HealthRadius);
+        }
+
+        private static float Scaled(float value) => GlobalHudScaleHelper.Scale(value);
+
+        private static Vector2 Scaled(Vector2 value) => GlobalHudScaleHelper.Scale(value);
+
+        private static int ScaledBorderThickness(int value) => Math.Max(1, (int)MathF.Round(GlobalHudScaleHelper.Scale(value)));
 
         private bool TryGetCastInfo(out float current, out float total)
         {

@@ -55,14 +55,15 @@ namespace DelvUI.Interface.GeneralElements
             Vector2 size;
             Vector2 pos;
             float previewScale = NameplatesTabPreviewRenderer.ActiveTextScale;
-            float effectiveFontScale = Config.GetFontScale() * previewScale;
+            float effectiveFontScale = Config.GetFontScale() * previewScale * GlobalHudScaleHelper.ScaleFactor;
             string? effectiveFontId = ResolveEffectiveFontId();
 
             if (Config.UseSystemFont())
             {
                 ImGui.PushFont(UiBuilder.DefaultFont);
                 size = ImGui.CalcTextSize(text) * effectiveFontScale;
-                pos = Utils.GetAnchoredPosition(Utils.GetAnchoredPosition(parentPos + Config.Position, -parentSize, Config.FrameAnchor), size, Config.TextAnchor);
+                Vector2 framePos = Utils.GetAnchoredPosition(parentPos + GlobalHudScaleHelper.Scale(Config.Position), -parentSize, Config.FrameAnchor);
+                pos = Utils.GetAnchoredPositionForScreenSize(framePos, size, Config.TextAnchor);
                 ImGui.PopFont();
             }
             else
@@ -70,7 +71,8 @@ namespace DelvUI.Interface.GeneralElements
                 using (FontsManager.Instance.PushFont(effectiveFontId))
                 {
                     size = ImGui.CalcTextSize(text) * effectiveFontScale;
-                    pos = Utils.GetAnchoredPosition(Utils.GetAnchoredPosition(parentPos + Config.Position, -parentSize, Config.FrameAnchor), size, Config.TextAnchor);
+                    Vector2 framePos = Utils.GetAnchoredPosition(parentPos + GlobalHudScaleHelper.Scale(Config.Position), -parentSize, Config.FrameAnchor);
+                    pos = Utils.GetAnchoredPositionForScreenSize(framePos, size, Config.TextAnchor);
                 }
             }
 
@@ -81,7 +83,7 @@ namespace DelvUI.Interface.GeneralElements
         {
             if (!Config.Enabled) { return; }
             float previewScale = NameplatesTabPreviewRenderer.ActiveTextScale;
-            float effectiveFontScale = Config.GetFontScale() * previewScale;
+            float effectiveFontScale = Config.GetFontScale() * previewScale * GlobalHudScaleHelper.ScaleFactor;
             string? effectiveFontId = ResolveEffectiveFontId();
 
             PluginConfigColor fillColor = color;
@@ -184,14 +186,15 @@ namespace DelvUI.Interface.GeneralElements
             Vector2 size;
             Vector2 pos;
             float previewTextScale = NameplatesTabPreviewRenderer.ActiveTextScale;
-            float effectiveFontScale = Config.GetFontScale() * previewTextScale;
+            float effectiveFontScale = Config.GetFontScale() * previewTextScale * GlobalHudScaleHelper.ScaleFactor;
             string? effectiveFontId = ResolveEffectiveFontId();
 
             if (Config.UseSystemFont())
             {
                 ImGui.PushFont(UiBuilder.DefaultFont);
                 size = ImGui.CalcTextSize(text) * effectiveFontScale;
-                pos = Utils.GetAnchoredPosition(Utils.GetAnchoredPosition(origin + Config.Position, -pSize, Config.FrameAnchor), size, Config.TextAnchor);
+                Vector2 framePos = Utils.GetAnchoredPosition(origin + GlobalHudScaleHelper.Scale(Config.Position), -pSize, Config.FrameAnchor);
+                pos = Utils.GetAnchoredPositionForScreenSize(framePos, size, Config.TextAnchor);
                 ImGui.PopFont();
             }
             else
@@ -199,7 +202,8 @@ namespace DelvUI.Interface.GeneralElements
                 using (FontsManager.Instance.PushFont(effectiveFontId))
                 {
                     size = ImGui.CalcTextSize(text) * effectiveFontScale;
-                    pos = Utils.GetAnchoredPosition(Utils.GetAnchoredPosition(origin + Config.Position, -pSize, Config.FrameAnchor), size, Config.TextAnchor);
+                    Vector2 framePos = Utils.GetAnchoredPosition(origin + GlobalHudScaleHelper.Scale(Config.Position), -pSize, Config.FrameAnchor);
+                    pos = Utils.GetAnchoredPositionForScreenSize(framePos, size, Config.TextAnchor);
                 }
             }
 
@@ -284,9 +288,10 @@ namespace DelvUI.Interface.GeneralElements
         {
             ImGui.PushFont(UiBuilder.IconFont);
             float previewScale = NameplatesTabPreviewRenderer.ActiveTextScale;
-            float effectiveFontScale = Config.GetFontScale() * previewScale;
+            float effectiveFontScale = Config.GetFontScale() * previewScale * GlobalHudScaleHelper.ScaleFactor;
             Vector2 size = ImGui.CalcTextSize(text) * effectiveFontScale;
-            Vector2 pos = Utils.GetAnchoredPosition(Utils.GetAnchoredPosition(parentPos + Config.Position, -parentSize, Config.FrameAnchor), size, Config.TextAnchor);
+            Vector2 framePos = Utils.GetAnchoredPosition(parentPos + GlobalHudScaleHelper.Scale(Config.Position), -parentSize, Config.FrameAnchor);
+            Vector2 pos = Utils.GetAnchoredPositionForScreenSize(framePos, size, Config.TextAnchor);
             ImGui.PopFont();
 
             DrawHelper.DrawInWindow(ID, pos, size, false, (drawList) =>

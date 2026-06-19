@@ -1,4 +1,4 @@
-﻿using Dalamud.Game.ClientState.JobGauge.Types;
+using Dalamud.Game.ClientState.JobGauge.Types;
 using Dalamud.Game.ClientState.Objects.SubKinds;
 using DelvUI.Config;
 using DelvUI.Config.Attributes;
@@ -71,32 +71,32 @@ namespace DelvUI.Interface.Jobs
         {
             if (Config.KenkiBar.Enabled)
             {
-                DrawKenkiBar(origin + Config.Position, player);
+                DrawKenkiBar(GlobalHudScaleHelper.ApplyOriginOffset(origin, Config.Position), player);
             }
 
             if (Config.ShifuBar.Enabled)
             {
-                DrawShifuBar(origin + Config.Position, player);
+                DrawShifuBar(GlobalHudScaleHelper.ApplyOriginOffset(origin, Config.Position), player);
             }
 
             if (Config.JinpuBar.Enabled)
             {
-                DrawJinpuBar(origin + Config.Position, player);
+                DrawJinpuBar(GlobalHudScaleHelper.ApplyOriginOffset(origin, Config.Position), player);
             }
 
             if (Config.SenBar.Enabled)
             {
-                DrawSenBar(origin + Config.Position, player);
+                DrawSenBar(GlobalHudScaleHelper.ApplyOriginOffset(origin, Config.Position), player);
             }
 
             if (Config.MeditationBar.Enabled)
             {
-                DrawMeditationBar(origin + Config.Position, player);
+                DrawMeditationBar(GlobalHudScaleHelper.ApplyOriginOffset(origin, Config.Position), player);
             }
 
             if (Config.HiganbanaBar.Enabled)
             {
-                DrawHiganbanaBar(origin + Config.Position, player);
+                DrawHiganbanaBar(GlobalHudScaleHelper.ApplyOriginOffset(origin, Config.Position), player);
             }
         }
 

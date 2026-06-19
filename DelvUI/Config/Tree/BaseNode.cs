@@ -563,49 +563,7 @@ namespace DelvUI.Config.Tree
 
 
 
-            ImGui.PushFont(UiBuilder.IconFont);
-
-            ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(AetherAccent.X, AetherAccent.Y, AetherAccent.Z, alpha));
-
-            ImGui.SetCursorPos(new Vector2(ImGui.GetWindowWidth() - 28 * _scale, 5 * _scale));
-
-            if (ImGui.Button(FontAwesomeIcon.Times.ToIconString(), new Vector2(22 * _scale, 22 * _scale)))
-
-            {
-
-                ConfigurationManager.Instance.CloseConfigWindow();
-
-            }
-
-            ImGui.PopStyleColor();
-
-            ImGui.PopFont();
-
-            ImGuiHelper.SetTooltip("Close");
-
-
-
-            ImGui.PushFont(UiBuilder.IconFont);
-
-            ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(AetherAccent.X, AetherAccent.Y, AetherAccent.Z, alpha));
-
-            ImGui.SetCursorPos(new Vector2(ImGui.GetWindowWidth() - 60 * _scale, 5 * _scale));
-
-            string hideString = ConfigurationManager.Instance.ShowHUD ? FontAwesomeIcon.Eye.ToIconString() : FontAwesomeIcon.EyeSlash.ToIconString();
-
-            if (ImGui.Button(hideString, new Vector2(26 * _scale, 22 * _scale)))
-
-            {
-
-                ConfigurationManager.Instance.ShowHUD = !ConfigurationManager.Instance.ShowHUD;
-
-            }
-
-            ImGui.PopStyleColor();
-
-            ImGui.PopFont();
-
-            ImGuiHelper.SetTooltip(ConfigurationManager.Instance.ShowHUD ? "Hide HUD" : "Show HUD");
+            DrawTopWindowChrome(alpha);
 
 
 
@@ -644,6 +602,104 @@ namespace DelvUI.Config.Tree
 
 
             NeedsSave |= changed | didReset;
+
+        }
+
+
+
+        private void DrawTopWindowChrome(float alpha)
+
+        {
+
+            float chromeHeight = 32f * _scale;
+
+            float buttonY = 5f * _scale;
+
+            float buttonHeight = 22f * _scale;
+
+            float closeWidth = 22f * _scale;
+
+            float hideWidth = 26f * _scale;
+
+            float closeX = ImGui.GetWindowWidth() - 28f * _scale;
+
+            float hideX = ImGui.GetWindowWidth() - 60f * _scale;
+
+
+
+            ImGui.SetCursorPos(Vector2.Zero);
+
+            ImGui.PushStyleColor(ImGuiCol.ChildBg, 0);
+
+            if (ImGui.BeginChild(
+
+                "##aetherUiTopChrome",
+
+                new Vector2(0f, chromeHeight),
+
+                false,
+
+                ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse))
+
+            {
+
+                ImGui.PushFont(UiBuilder.IconFont);
+
+                ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(AetherAccent.X, AetherAccent.Y, AetherAccent.Z, alpha));
+
+
+
+                ImGui.SetCursorPos(new Vector2(hideX, buttonY));
+
+                string hideString = ConfigurationManager.Instance.ShowHUD
+
+                    ? FontAwesomeIcon.Eye.ToIconString()
+
+                    : FontAwesomeIcon.EyeSlash.ToIconString();
+
+                if (ImGui.Button(hideString, new Vector2(hideWidth, buttonHeight)))
+
+                {
+
+                    ConfigurationManager.Instance.ShowHUD = !ConfigurationManager.Instance.ShowHUD;
+
+                }
+
+                ImGui.PopStyleColor();
+
+                ImGui.PopFont();
+
+                ImGuiHelper.SetTooltip(ConfigurationManager.Instance.ShowHUD ? "Hide HUD" : "Show HUD");
+
+
+
+                ImGui.PushFont(UiBuilder.IconFont);
+
+                ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(AetherAccent.X, AetherAccent.Y, AetherAccent.Z, alpha));
+
+                ImGui.SetCursorPos(new Vector2(closeX, buttonY));
+
+                if (ImGui.Button(FontAwesomeIcon.Times.ToIconString(), new Vector2(closeWidth, buttonHeight)))
+
+                {
+
+                    ConfigurationManager.Instance.CloseConfigWindow();
+
+                }
+
+                ImGui.PopStyleColor();
+
+                ImGui.PopFont();
+
+                ImGuiHelper.SetTooltip("Close");
+
+
+
+                ImGui.EndChild();
+
+            }
+
+            ImGui.PopStyleColor();
 
         }
 

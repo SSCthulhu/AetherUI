@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using DelvUI.Helpers;
 using DelvUI.Interface.Bars;
 using Dalamud.Bindings.ImGui;
@@ -38,12 +38,14 @@ namespace DelvUI.Interface.GeneralElements
 
         private (Vector2, Vector2) GetPositionAndSize(Vector2 origin)
         {
-            Vector2 pos = Config.AnchorToMouse ? ImGui.GetMousePos() + Config.Position : origin + Config.Position;
-            Vector2 size = Config.Bar.Size;
+            Vector2 pos = Config.AnchorToMouse
+                ? ImGui.GetMousePos() + GlobalHudScaleHelper.Scale(Config.Position)
+                : GlobalHudScaleHelper.ApplyOriginOffset(origin, Config.Position);
+            Vector2 size = GlobalHudScaleHelper.Scale(Config.Bar.Size);
 
             if (Config.CircularMode)
             {
-                size = new Vector2(Config.CircleRadius * 2, Config.CircleRadius * 2);
+                size = GlobalHudScaleHelper.Scale(new Vector2(Config.CircleRadius * 2, Config.CircleRadius * 2));
                 pos += size / 2f;
             }
 

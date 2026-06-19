@@ -48,6 +48,8 @@ namespace DelvUI.Interface
         private Dictionary<uint, Type> _unsupportedJobsMap = null!;
         private List<Type> _jobTypes = null!;
 
+        private Vector2 _lastViewportSize = Vector2.Zero;
+
         private NameplatesHud _nameplatesHud = null!;
 
         private double _occupiedInQuestStartTime = -1;
@@ -201,6 +203,162 @@ namespace DelvUI.Interface
             if (_jobHud != null)
             {
                 _jobHud.Selected = false;
+            }
+        }
+
+        private void TryPersistHudElementsWithinScreen(Vector2 origin)
+        {
+            Vector2 viewportSize = ImGui.GetMainViewport().Size;
+
+            if (_hudOptions is not { ClampHudToScreen: true } || !ConfigurationManager.Instance.LockHUD)
+            {
+                _lastViewportSize = viewportSize;
+                return;
+            }
+
+            bool viewportChanged = _lastViewportSize != Vector2.Zero && _lastViewportSize != viewportSize;
+            if (!viewportChanged)
+            {
+                _lastViewportSize = viewportSize;
+                return;
+            }
+
+            bool anyClamped = PersistHudElementsWithinScreen(origin);
+
+            if (anyClamped)
+            {
+                ConfigurationManager.Instance.ForceNeedsSave();
+            }
+
+            _lastViewportSize = viewportSize;
+        }
+
+        private bool PersistHudElementsWithinScreen(Vector2 origin)
+        {
+            bool anyClamped = false;
+
+            // Re-run while elements still overflow so scale growth clamps monotonically to the edge.
+            for (int pass = 0; pass < 4; pass++)
+            {
+                bool passClamped = false;
+
+                lock (_hudElements)
+                {
+                    foreach (DraggableHudElement element in _hudElements.Values)
+                    {
+                        if (!element.ShouldClampIndependently)
+                        {
+                            continue;
+                        }
+
+                        IReadOnlyList<DraggableHudElement> anchoredChildren = GetAnchoredChildren(element);
+                        passClamped |= element.TryPersistScreenClamp(origin, anchoredChildren);
+                    }
+                }
+
+                if (_jobHud != null && _jobHud.ShouldClampIndependently)
+                {
+                    passClamped |= _jobHud.TryPersistScreenClamp(origin);
+                }
+
+                anyClamped |= passClamped;
+
+                if (!passClamped)
+                {
+                    break;
+                }
+            }
+
+            return anyClamped;
+        }
+
+        private List<DraggableHudElement> GetAnchoredChildren(DraggableHudElement parent)
+        {
+            MovablePluginConfigObject parentConfig = parent.GetConfig();
+            List<DraggableHudElement> children = new();
+
+            foreach (DraggableHudElement element in _hudElements.Values)
+            {
+                if (element is ParentAnchoredDraggableHudElement { IsAnchoredToParent: true } anchored &&
+                    anchored.ParentConfig == parentConfig)
+                {
+                    children.Add(element);
+                }
+            }
+
+            return children;
+        }
+
+        private void ConfigureScreenClampAnchoredChildren()
+        {
+            foreach (DraggableHudElement element in _hudElements.Values)
+            {
+                element.SetScreenClampAnchoredChildren(GetAnchoredChildren(element));
+            }
+
+            _jobHud?.SetScreenClampAnchoredChildren(null);
+        }
+
+        private void ComputeDrawScreenClampOffsets(Vector2 origin)
+        {
+            foreach (DraggableHudElement element in _hudElements.Values)
+            {
+                element.ComputeDrawScreenClampOffset(origin);
+            }
+
+            _jobHud?.ComputeDrawScreenClampOffset(origin);
+        }
+
+        private void PropagateParentDrawScreenClampOffsets()
+        {
+            foreach (DraggableHudElement element in _hudElements.Values)
+            {
+                if (element is not ParentAnchoredDraggableHudElement { IsAnchoredToParent: true } anchored)
+                {
+                    continue;
+                }
+
+                DraggableHudElement? parentElement = FindHudElementByConfig(anchored.ParentConfig);
+                Vector2 parentOffset = parentElement != null && parentElement.DraggingEnabled
+                    ? parentElement.DrawScreenClampOffset
+                    : Vector2.Zero;
+                anchored.SetParentDrawScreenClampOffset(parentOffset);
+            }
+        }
+
+        private DraggableHudElement? FindHudElementByConfig(AnchorablePluginConfigObject? config)
+        {
+            if (config == null)
+            {
+                return null;
+            }
+
+            foreach (KeyValuePair<PluginConfigObject, DraggableHudElement> entry in _hudElements)
+            {
+                if (entry.Key == config)
+                {
+                    return entry.Value;
+                }
+            }
+
+            return null;
+        }
+
+        private void ClearScreenClampAnchoredChildren()
+        {
+            foreach (DraggableHudElement element in _hudElements.Values)
+            {
+                element.ClearScreenClampAnchoredChildren();
+            }
+
+            _jobHud?.ClearScreenClampAnchoredChildren();
+
+            foreach (DraggableHudElement element in _hudElements.Values)
+            {
+                if (element is ParentAnchoredDraggableHudElement anchored)
+                {
+                    anchored.SetParentDrawScreenClampOffset(Vector2.Zero);
+                }
             }
         }
 
@@ -482,6 +640,9 @@ namespace DelvUI.Interface
                 origin += _hudOptions.HudOffset;
             }
 
+            GlobalHudScaleHelper.UpdateFromConfig();
+            TryPersistHudElementsWithinScreen(origin);
+
             // show only castbar during quest events
             if (ShouldOnlyShowCastbar())
             {
@@ -514,7 +675,11 @@ namespace DelvUI.Interface
             // draw elements
             lock (_hudElements)
             {
+                ConfigureScreenClampAnchoredChildren();
+                ComputeDrawScreenClampOffsets(origin);
+                PropagateParentDrawScreenClampOffsets();
                 DraggablesHelper.DrawElements(origin, _hudHelper, _hudElements.Values, _jobHud, _selectedElement);
+                ClearScreenClampAnchoredChildren();
             }
 
             // tooltip

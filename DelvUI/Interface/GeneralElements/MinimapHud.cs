@@ -1,4 +1,5 @@
 using DelvUI.Config;
+using DelvUI.Helpers;
 using DelvUI.Config.Tree;
 using DelvUI.Enums;
 using Dalamud.Bindings.ImGui;
@@ -47,7 +48,7 @@ namespace DelvUI.Interface.GeneralElements
             }
 
             EnsureNativeState(true);
-            var center = origin + Config.Position;
+            var center = GlobalHudScaleHelper.ApplyOriginOffset(origin, Config.Position);
             var snapshot = _stateProvider.Build();
             AddDrawAction(Config.StrataLevel, () =>
             {
@@ -130,8 +131,11 @@ namespace DelvUI.Interface.GeneralElements
                 return;
             }
 
-            var controlsWidth = (MinimapControlButtonSize * 4f) + (MinimapControlGap * 3f) + (MinimapControlPadding * 2f);
-            var controlsHeight = MinimapControlButtonSize + (MinimapControlPadding * 2f);
+            var buttonSize = GlobalHudScaleHelper.Scale(MinimapControlButtonSize);
+            var controlPadding = GlobalHudScaleHelper.Scale(MinimapControlPadding);
+            var controlGap = GlobalHudScaleHelper.Scale(MinimapControlGap);
+            var controlsWidth = (buttonSize * 4f) + (controlGap * 3f) + (controlPadding * 2f);
+            var controlsHeight = buttonSize + (controlPadding * 2f);
             var controlsPos = GetMinimapControlsPosition(center, controlsWidth, controlsHeight);
 
             var controlsFlags = ImGuiWindowFlags.NoDecoration |
@@ -141,8 +145,8 @@ namespace DelvUI.Interface.GeneralElements
 
             ImGui.SetNextWindowPos(controlsPos, ImGuiCond.Always);
             ImGui.SetNextWindowSize(new Vector2(controlsWidth, controlsHeight), ImGuiCond.Always);
-            ImGui.PushStyleVar(ImGuiStyleVar.WindowRounding, 8f);
-            ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(MinimapControlPadding, MinimapControlPadding));
+            ImGui.PushStyleVar(ImGuiStyleVar.WindowRounding, GlobalHudScaleHelper.Scale(8f));
+            ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(controlPadding, controlPadding));
             ImGui.PushStyleColor(ImGuiCol.WindowBg, 0xCC11161E);
             ImGui.PushStyleColor(ImGuiCol.Border, 0xAA4D5A6A);
 
@@ -153,27 +157,27 @@ namespace DelvUI.Interface.GeneralElements
                     _minimapControlsVisibleUntil = DateTime.UtcNow + MinimapControlsGrace;
                 }
 
-                if (ImGui.Button("-##MinimapZoomOut", new Vector2(MinimapControlButtonSize, MinimapControlButtonSize)))
+                if (ImGui.Button("-##MinimapZoomOut", new Vector2(buttonSize, buttonSize)))
                 {
                     Config.VisibleRangeYalms = MinimapLayout.ClampVisibleRange(Config.VisibleRangeYalms + MinimapZoomStepYalms);
                     ConfigurationManager.Instance.ForceNeedsSave();
                 }
 
-                ImGui.SameLine(0f, MinimapControlGap);
-                if (ImGui.Button("+##MinimapZoomIn", new Vector2(MinimapControlButtonSize, MinimapControlButtonSize)))
+                ImGui.SameLine(0f, controlGap);
+                if (ImGui.Button("+##MinimapZoomIn", new Vector2(buttonSize, buttonSize)))
                 {
                     Config.VisibleRangeYalms = MinimapLayout.ClampVisibleRange(Config.VisibleRangeYalms - MinimapZoomStepYalms);
                     ConfigurationManager.Instance.ForceNeedsSave();
                 }
 
-                ImGui.SameLine(0f, MinimapControlGap);
-                if (ImGui.Button("##MinimapSettings", new Vector2(MinimapControlButtonSize, MinimapControlButtonSize)))
+                ImGui.SameLine(0f, controlGap);
+                if (ImGui.Button("##MinimapSettings", new Vector2(buttonSize, buttonSize)))
                 {
                     ToggleMinimapConfig();
                 }
                 DrawMinimapCogIcon(ImGui.GetWindowDrawList(), ImGui.GetItemRectMin(), ImGui.GetItemRectMax(), 0xFFEAF2FF);
 
-                ImGui.SameLine(0f, MinimapControlGap);
+                ImGui.SameLine(0f, controlGap);
                 var northLocked = Config.NorthLock;
                 var pushedNorthStyles = northLocked;
                 if (pushedNorthStyles)
@@ -183,7 +187,7 @@ namespace DelvUI.Interface.GeneralElements
                     ImGui.PushStyleColor(ImGuiCol.ButtonActive, 0xFF4A83CB);
                 }
 
-                if (ImGui.Button("##MinimapNorthLock", new Vector2(MinimapControlButtonSize, MinimapControlButtonSize)))
+                if (ImGui.Button("##MinimapNorthLock", new Vector2(buttonSize, buttonSize)))
                 {
                     Config.NorthLock = !Config.NorthLock;
                     northLocked = Config.NorthLock;
@@ -209,8 +213,7 @@ namespace DelvUI.Interface.GeneralElements
 
         private bool IsPointInMinimapArea(Vector2 point, Vector2 center)
         {
-            var size = MinimapLayout.ClampSize(Config.Size);
-            var half = size * 0.5f;
+            var half = MinimapLayout.GetScaledContentHalf(Config.Size);
             if (Config.Square)
             {
                 return Math.Abs(point.X - center.X) <= half &&
@@ -222,11 +225,10 @@ namespace DelvUI.Interface.GeneralElements
 
         private Vector2 GetMinimapControlsPosition(Vector2 center, float controlsWidth, float controlsHeight)
         {
-            var size = MinimapLayout.ClampSize(Config.Size);
-            var half = size * 0.5f;
+            var half = MinimapLayout.GetScaledContentHalf(Config.Size);
             var mapMin = center - new Vector2(half, half);
             var mapMax = center + new Vector2(half, half);
-            var borderInset = 6f;
+            var borderInset = GlobalHudScaleHelper.Scale(6f);
 
             Vector2 pos;
             if (Config.Square)

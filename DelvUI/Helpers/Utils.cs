@@ -261,6 +261,16 @@ namespace DelvUI.Helpers
 
         public static Vector2 GetAnchoredPosition(Vector2 position, Vector2 size, DrawAnchor anchor)
         {
+            size = GlobalHudScaleHelper.Scale(size);
+
+            return GetAnchoredPositionForScreenSize(position, size, anchor);
+        }
+
+        /// <summary>
+        /// Anchor math when size is already in screen space (e.g. measured text after font scale).
+        /// </summary>
+        public static Vector2 GetAnchoredPositionForScreenSize(Vector2 position, Vector2 size, DrawAnchor anchor)
+        {
             return anchor switch
             {
                 DrawAnchor.Center => position - size / 2f,

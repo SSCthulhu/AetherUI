@@ -1,4 +1,4 @@
-﻿using Dalamud.Game.ClientState.JobGauge.Enums;
+using Dalamud.Game.ClientState.JobGauge.Enums;
 using Dalamud.Game.ClientState.JobGauge.Types;
 using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Game.ClientState.Statuses;
@@ -79,7 +79,7 @@ namespace DelvUI.Interface.Jobs
 
         public override void DrawJobHud(Vector2 origin, IPlayerCharacter player)
         {
-            Vector2 pos = origin + Config.Position;
+            Vector2 pos = GlobalHudScaleHelper.ApplyOriginOffset(origin, Config.Position);
 
             if (Config.PaletteBar.Enabled)
             {

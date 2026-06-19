@@ -187,7 +187,7 @@ namespace DelvUI.Interface.EnemyList
                 }
 
                 // highlight
-                var (areaStart, areaEnd) = Configs.HealthBar.MouseoverAreaConfig.GetArea(origin + pos, Configs.HealthBar.Size);
+                var (areaStart, areaEnd) = Configs.HealthBar.MouseoverAreaConfig.GetArea(GlobalHudScaleHelper.ApplyOriginOffset(origin, pos), Configs.HealthBar.Size);
                 bool isHovering = character != null && ImGui.IsMouseHoveringRect(areaStart, areaEnd);
                 bool isSoftTarget = character != null && character.EntityId == Plugin.TargetManager.SoftTarget?.EntityId;
                 if (isHovering || isSoftTarget)
@@ -219,7 +219,7 @@ namespace DelvUI.Interface.EnemyList
                 // enmity icon
                 if (_iconsTexture != null && Configs.EnmityIcon.Enabled)
                 {
-                    var parentPos = Utils.GetAnchoredPosition(origin + pos, -Configs.HealthBar.Size, Configs.EnmityIcon.HealthBarAnchor);
+                    var parentPos = Utils.GetAnchoredPosition(GlobalHudScaleHelper.ApplyOriginOffset(origin, pos), -Configs.HealthBar.Size, Configs.EnmityIcon.HealthBarAnchor);
                     var iconPos = Utils.GetAnchoredPosition(parentPos + Configs.EnmityIcon.Position, Configs.EnmityIcon.Size, Configs.EnmityIcon.Anchor);
                     int enmityIndex = Config.Preview ? Math.Min(3, i) : _helper.EnemiesData.ElementAt(i).EnmityLevel - 1;
 
@@ -243,7 +243,7 @@ namespace DelvUI.Interface.EnemyList
                     signIconId = Configs.SignIcon.IconID(character);
                     if (signIconId.HasValue)
                     {
-                        var parentPos = Utils.GetAnchoredPosition(origin + pos, -Configs.HealthBar.Size, Configs.SignIcon.HealthBarAnchor);
+                        var parentPos = Utils.GetAnchoredPosition(GlobalHudScaleHelper.ApplyOriginOffset(origin, pos), -Configs.HealthBar.Size, Configs.SignIcon.HealthBarAnchor);
                         var iconPos = Utils.GetAnchoredPosition(parentPos + Configs.SignIcon.Position, Configs.SignIcon.Size, Configs.SignIcon.Anchor);
 
                         AddDrawAction(Configs.SignIcon.StrataLevel, () =>
@@ -260,12 +260,12 @@ namespace DelvUI.Interface.EnemyList
                 string? name = Config.Preview ? "Fake Name" : null;
                 AddDrawAction(Configs.HealthBar.NameLabel.StrataLevel, () =>
                 {
-                    _nameLabelHud.Draw(origin + pos, Configs.HealthBar.Size, character, name, currentHp, maxHp);
+                    _nameLabelHud.Draw(GlobalHudScaleHelper.ApplyOriginOffset(origin, pos), Configs.HealthBar.Size, character, name, currentHp, maxHp);
                 });
 
                 AddDrawAction(Configs.HealthBar.HealthLabel.StrataLevel, () =>
                 {
-                    _healthLabelHud.Draw(origin + pos, Configs.HealthBar.Size, character, name, currentHp, maxHp);
+                    _healthLabelHud.Draw(GlobalHudScaleHelper.ApplyOriginOffset(origin, pos), Configs.HealthBar.Size, character, name, currentHp, maxHp);
                 });
 
                 if (!signIconId.HasValue || !Configs.SignIcon.ReplaceOrderLabel)
@@ -280,12 +280,12 @@ namespace DelvUI.Interface.EnemyList
                     AddDrawAction(Configs.HealthBar.OrderLabel.StrataLevel, () =>
                     {
                         Configs.HealthBar.OrderLabel.SetText(str);
-                        _orderLabelHud.Draw(origin + pos, Configs.HealthBar.Size);
+                        _orderLabelHud.Draw(GlobalHudScaleHelper.ApplyOriginOffset(origin, pos), Configs.HealthBar.Size);
                     });
                 }
 
                 // buffs / debuffs
-                var buffsPos = Utils.GetAnchoredPosition(origin + pos, -Configs.HealthBar.Size, Configs.Buffs.HealthBarAnchor);
+                var buffsPos = Utils.GetAnchoredPosition(GlobalHudScaleHelper.ApplyOriginOffset(origin, pos), -Configs.HealthBar.Size, Configs.Buffs.HealthBarAnchor);
                 AddDrawAction(Configs.Buffs.StrataLevel, () =>
                 {
                     _buffsListHud.Actor = character;
@@ -293,7 +293,7 @@ namespace DelvUI.Interface.EnemyList
                     _buffsListHud.Draw(buffsPos);
                 });
 
-                var debuffsPos = Utils.GetAnchoredPosition(origin + pos, -Configs.HealthBar.Size, Configs.Debuffs.HealthBarAnchor);
+                var debuffsPos = Utils.GetAnchoredPosition(GlobalHudScaleHelper.ApplyOriginOffset(origin, pos), -Configs.HealthBar.Size, Configs.Debuffs.HealthBarAnchor);
                 AddDrawAction(Configs.Debuffs.StrataLevel, () =>
                 {
                     _debuffsListHud.Actor = character;
@@ -305,7 +305,7 @@ namespace DelvUI.Interface.EnemyList
                 EnemyListCastbarHud castbar = _castbarHud[i];
                 castbar.EnemyListIndex = i;
 
-                var castbarPos = Utils.GetAnchoredPosition(origin + pos, -Configs.HealthBar.Size, Configs.CastBar.HealthBarAnchor);
+                var castbarPos = Utils.GetAnchoredPosition(GlobalHudScaleHelper.ApplyOriginOffset(origin, pos), -Configs.HealthBar.Size, Configs.CastBar.HealthBarAnchor);
                 AddDrawAction(Configs.CastBar.StrataLevel, () =>
                 {
                     castbar.Actor = character;

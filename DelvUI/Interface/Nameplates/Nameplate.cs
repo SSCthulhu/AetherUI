@@ -146,6 +146,15 @@ namespace DelvUI.Interface.Nameplates
             _optionalLabelHud = new LabelHud(BarConfig.OptionalLabelConfig);
         }
 
+        /// <summary>
+        /// Top-left of the health bar background in screen space, matching <see cref="BarHud"/> draw math.
+        /// </summary>
+        protected Vector2 GetBarBackgroundPosition(Vector2 origin, Vector2 barSize)
+        {
+            Vector2 anchoredPos = Utils.GetAnchoredPosition(origin, barSize, BarConfig.Anchor);
+            return anchoredPos + GlobalHudScaleHelper.Scale(BarConfig.Position);
+        }
+
         public (bool, bool) GetMouseoverState(NameplateData data)
         {
             if (data.GameObject is not ICharacter character) { return (false, false); }
@@ -155,10 +164,11 @@ namespace DelvUI.Interface.Nameplates
             }
 
             bool targeted = Plugin.TargetManager.Target?.Address == character.Address;
-            Vector2 barSize = BarConfig.GetSize(targeted);
+            float plateScale = _config.PlateScale;
+            Vector2 barSize = BarConfig.GetSize(targeted) * plateScale;
 
             Vector2 origin = _config.Position + data.ScreenPosition;
-            Vector2 barPos = Utils.GetAnchoredPosition(origin, barSize, BarConfig.Anchor) + BarConfig.Position;
+            Vector2 barPos = GetBarBackgroundPosition(origin, barSize);
             var (areaStart, areaEnd) = BarConfig.MouseoverAreaConfig.GetArea(barPos, barSize);
 
             bool isHovering = ImGui.IsMouseHoveringRect(areaStart, areaEnd);
@@ -247,7 +257,7 @@ namespace DelvUI.Interface.Nameplates
             }
 
             // labels
-            Vector2 barPos = Utils.GetAnchoredPosition(origin, barSize, BarConfig.Anchor) + BarConfig.Position;
+            Vector2 barPos = GetBarBackgroundPosition(origin, barSize);
             LabelHud[] labels = GetLabels(maxHp);
             foreach (LabelHud label in labels)
             {
@@ -317,10 +327,12 @@ namespace DelvUI.Interface.Nameplates
 
         protected virtual NameplateAnchor? GetBarAnchor(NameplateData data)
         {
+            Vector2 origin = _config.Position + data.ScreenPosition;
+
             if (data.PreferDisplayName && data.GameObject is not Character)
             {
                 Vector2 size = BarConfig.GetSize(false) * _config.PlateScale;
-                Vector2 pos = Utils.GetAnchoredPosition(_config.Position + data.ScreenPosition + BarConfig.Position, size, BarConfig.Anchor);
+                Vector2 pos = GetBarBackgroundPosition(origin, size);
                 return new NameplateAnchor(pos, size);
             }
 
@@ -329,7 +341,7 @@ namespace DelvUI.Interface.Nameplates
             {
                 bool targeted = Plugin.TargetManager.Target?.Address == data.GameObject.Address;
                 Vector2 size = BarConfig.GetSize(targeted) * _config.PlateScale;
-                Vector2 pos = Utils.GetAnchoredPosition(_config.Position + data.ScreenPosition + BarConfig.Position, size, BarConfig.Anchor);
+                Vector2 pos = GetBarBackgroundPosition(origin, size);
 
                 return new NameplateAnchor(pos, size);
             }
@@ -503,14 +515,19 @@ namespace DelvUI.Interface.Nameplates
                 if (iconId > 0)
                 {
                     var pos = Utils.GetAnchoredPosition(anchor.Value.Position, -anchor.Value.Size, Config.RoleIconConfig.FrameAnchor);
-                    Vector2 scaledRoleIconSize = Config.RoleIconConfig.Size * plateScale;
-                    var iconPos = Utils.GetAnchoredPosition(pos + Config.RoleIconConfig.Position * plateScale, scaledRoleIconSize, Config.RoleIconConfig.Anchor);
+                    Vector2 logicalRoleIconSize = Config.RoleIconConfig.Size * plateScale;
+                    Vector2 screenRoleIconSize = GlobalHudScaleHelper.Scale(logicalRoleIconSize);
+                    var iconPos = Utils.GetAnchoredPosition(
+                        pos + GlobalHudScaleHelper.Scale(Config.RoleIconConfig.Position * plateScale),
+                        logicalRoleIconSize,
+                        Config.RoleIconConfig.Anchor
+                    );
 
                     drawActions.Add((Config.RoleIconConfig.StrataLevel, () =>
                     {
-                        DrawHelper.DrawInWindow(_config.ID + "_jobIcon", iconPos, scaledRoleIconSize, false, (drawList) =>
+                        DrawHelper.DrawInWindow(_config.ID + "_jobIcon", iconPos, screenRoleIconSize, false, (drawList) =>
                         {
-                            DrawHelper.DrawIcon(iconId, iconPos, scaledRoleIconSize, false, alpha, drawList);
+                            DrawHelper.DrawIcon(iconId, iconPos, screenRoleIconSize, false, alpha, drawList);
                         });
                     }
                     ));
@@ -526,14 +543,19 @@ namespace DelvUI.Interface.Nameplates
                 anchor = anchor ?? new NameplateAnchor(data.ScreenPosition, Vector2.Zero);
 
                 var pos = Utils.GetAnchoredPosition(anchor.Value.Position, -anchor.Value.Size, Config.StateIconConfig.FrameAnchor);
-                Vector2 scaledStateIconSize = Config.StateIconConfig.Size * plateScale;
-                var iconPos = Utils.GetAnchoredPosition(pos + Config.StateIconConfig.Position * plateScale, scaledStateIconSize, Config.StateIconConfig.Anchor);
+                Vector2 logicalStateIconSize = Config.StateIconConfig.Size * plateScale;
+                Vector2 screenStateIconSize = GlobalHudScaleHelper.Scale(logicalStateIconSize);
+                var iconPos = Utils.GetAnchoredPosition(
+                    pos + GlobalHudScaleHelper.Scale(Config.StateIconConfig.Position * plateScale),
+                    logicalStateIconSize,
+                    Config.StateIconConfig.Anchor
+                );
 
                 drawActions.Add((Config.StateIconConfig.StrataLevel, () =>
                 {
-                    DrawHelper.DrawInWindow(_config.ID + "_stateIcon", iconPos, scaledStateIconSize, false, (drawList) =>
+                    DrawHelper.DrawInWindow(_config.ID + "_stateIcon", iconPos, screenStateIconSize, false, (drawList) =>
                     {
-                        DrawHelper.DrawIcon((uint)data.NamePlateIconId, iconPos, scaledStateIconSize, false, alpha, drawList);
+                        DrawHelper.DrawIcon((uint)data.NamePlateIconId, iconPos, screenStateIconSize, false, alpha, drawList);
                     });
                 }
                 ));
@@ -632,16 +654,18 @@ namespace DelvUI.Interface.Nameplates
             ));
 
             // debuffs
-            Vector2 buffsPos = Utils.GetAnchoredPosition(anchor.Value.Position, -anchor.Value.Size, Config.DebuffsConfig.HealthBarAnchor) + (Config.DebuffsConfig.Position * (plateScale - 1f));
+            Vector2 buffsPos = Utils.GetAnchoredPosition(anchor.Value.Position, -anchor.Value.Size, Config.DebuffsConfig.HealthBarAnchor);
             drawActions.Add((Config.DebuffsConfig.StrataLevel, () =>
             {
                 Vector2 originalDebuffsSize = Config.DebuffsConfig.Size;
+                Vector2 originalDebuffsPosition = Config.DebuffsConfig.Position;
                 Vector2 originalDebuffsIconSize = Config.DebuffsConfig.IconConfig.Size;
                 Vector2 originalDebuffsIconPadding = Config.DebuffsConfig.IconPadding;
                 Vector2 originalDurationPos = Config.DebuffsConfig.IconConfig.DurationLabelConfig.Position;
                 Vector2 originalStacksPos = Config.DebuffsConfig.IconConfig.StacksLabelConfig.Position;
                 float originalDebuffsTextScale = NameplatesTabPreviewRenderer.ActiveTextScale;
                 Config.DebuffsConfig.Size = originalDebuffsSize * plateScale;
+                Config.DebuffsConfig.Position = originalDebuffsPosition * plateScale;
                 Config.DebuffsConfig.IconConfig.Size = originalDebuffsIconSize * plateScale;
                 Config.DebuffsConfig.IconPadding = originalDebuffsIconPadding * plateScale;
                 Config.DebuffsConfig.IconConfig.DurationLabelConfig.Position = originalDurationPos * plateScale;
@@ -652,6 +676,7 @@ namespace DelvUI.Interface.Nameplates
                 _debuffsHud.Draw(buffsPos);
                 NameplatesTabPreviewRenderer.ActiveTextScale = originalDebuffsTextScale;
                 Config.DebuffsConfig.Size = originalDebuffsSize;
+                Config.DebuffsConfig.Position = originalDebuffsPosition;
                 Config.DebuffsConfig.IconConfig.Size = originalDebuffsIconSize;
                 Config.DebuffsConfig.IconPadding = originalDebuffsIconPadding;
                 Config.DebuffsConfig.IconConfig.DurationLabelConfig.Position = originalDurationPos;
@@ -660,7 +685,7 @@ namespace DelvUI.Interface.Nameplates
             ));
 
             // castbar
-            Vector2 castbarPos = Utils.GetAnchoredPosition(anchor.Value.Position, -anchor.Value.Size, Config.CastbarConfig.HealthBarAnchor) + (Config.CastbarConfig.Position * (plateScale - 1f));
+            Vector2 castbarPos = Utils.GetAnchoredPosition(anchor.Value.Position, -anchor.Value.Size, Config.CastbarConfig.HealthBarAnchor);
             drawActions.Add((Config.CastbarConfig.StrataLevel, () =>
             {
                 Vector2 originalCastbarSize = Config.CastbarConfig.Size;
@@ -692,14 +717,19 @@ namespace DelvUI.Interface.Nameplates
                 anchor = anchor ?? new NameplateAnchor(data.ScreenPosition, Vector2.Zero);
 
                 var pos = Utils.GetAnchoredPosition(anchor.Value.Position, -anchor.Value.Size, Config.IconConfig.FrameAnchor);
-                Vector2 scaledEnemyIconSize = Config.IconConfig.Size * plateScale;
-                var iconPos = Utils.GetAnchoredPosition(pos + Config.IconConfig.Position * plateScale, scaledEnemyIconSize, Config.IconConfig.Anchor);
+                Vector2 logicalEnemyIconSize = Config.IconConfig.Size * plateScale;
+                Vector2 screenEnemyIconSize = GlobalHudScaleHelper.Scale(logicalEnemyIconSize);
+                var iconPos = Utils.GetAnchoredPosition(
+                    pos + GlobalHudScaleHelper.Scale(Config.IconConfig.Position * plateScale),
+                    logicalEnemyIconSize,
+                    Config.IconConfig.Anchor
+                );
 
                 drawActions.Add((Config.IconConfig.StrataLevel, () =>
                 {
-                    DrawHelper.DrawInWindow(_config.ID + "_enemyIcon", iconPos, scaledEnemyIconSize, false, (drawList) =>
+                    DrawHelper.DrawInWindow(_config.ID + "_enemyIcon", iconPos, screenEnemyIconSize, false, (drawList) =>
                     {
-                        DrawHelper.DrawIcon((uint)data.NamePlateIconId, iconPos, scaledEnemyIconSize, false, alpha, drawList);
+                        DrawHelper.DrawIcon((uint)data.NamePlateIconId, iconPos, screenEnemyIconSize, false, alpha, drawList);
                     });
                 }
                 ));

@@ -53,7 +53,7 @@ namespace DelvUI.Interface.Jobs
 
         public override void DrawJobHud(Vector2 origin, IPlayerCharacter player)
         {
-            Vector2 pos = origin + Config.Position;
+            Vector2 pos = GlobalHudScaleHelper.ApplyOriginOffset(origin, Config.Position);
             if (Config.BleedBar.Enabled)
             {
                 DrawBleedBar(pos, player);

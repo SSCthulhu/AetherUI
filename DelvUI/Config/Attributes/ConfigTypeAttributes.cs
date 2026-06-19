@@ -100,6 +100,11 @@ namespace DelvUI.Config.Attributes
 
     #region field attributes
     [AttributeUsage(AttributeTargets.Field)]
+    public class PresetExemptAttribute : Attribute
+    {
+    }
+
+    [AttributeUsage(AttributeTargets.Field)]
     public abstract class ConfigAttribute : Attribute
     {
         public string friendlyName;

@@ -1,5 +1,6 @@
 using System.Numerics;
 using System;
+using DelvUI.Helpers;
 
 namespace DelvUI.Interface.GeneralElements
 {
@@ -44,9 +45,17 @@ namespace DelvUI.Interface.GeneralElements
         public static float ClampMarkerIconSize(float size) => Math.Clamp(size, MinMarkerIconSize, MaxMarkerIconSize);
         public static float ClampPlayerPinSize(float size) => Math.Clamp(size, MinPlayerPinSize, MaxPlayerPinSize);
 
+        public static float GetScaledSize(float size) => GlobalHudScaleHelper.Scale(ClampSize(size));
+
+        public static float GetScaledContentHalf(float size) => GetScaledSize(size) * 0.5f;
+
+        public static float GetScaledMarkerIconSize(float size) => GlobalHudScaleHelper.Scale(ClampMarkerIconSize(size));
+
+        public static float GetScaledPlayerPinSize(float size) => GlobalHudScaleHelper.Scale(ClampPlayerPinSize(size));
+
         public static ScreenOffsetBounds GetOffsetBounds(Vector2 viewportSize, float minimapSize)
         {
-            var halfMinimap = ClampSize(minimapSize) * 0.5f;
+            var halfMinimap = GetScaledContentHalf(minimapSize);
             var maxX = (viewportSize.X * 0.5f) + halfMinimap + OffsetEdgePadding;
             var maxY = (viewportSize.Y * 0.5f) + halfMinimap + OffsetEdgePadding;
             return new ScreenOffsetBounds(-maxX, maxX, -maxY, maxY);

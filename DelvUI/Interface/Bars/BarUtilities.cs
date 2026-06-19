@@ -153,7 +153,7 @@ namespace DelvUI.Interface.Bars
                 config.Position + GetFillDirectionOffset(config.Size, config.FillDirection) - offset :
                 config.Position + offset;
 
-            Vector2 anchoredPos = Utils.GetAnchoredPosition(markerPos, markerSize, config.FillDirection.IsHorizontal() ? DrawAnchor.Top : DrawAnchor.Left);
+            Vector2 anchoredPos = GetLocalAnchoredPosition(markerPos, markerSize, config.FillDirection.IsHorizontal() ? DrawAnchor.Top : DrawAnchor.Left);
             Rect marker = new(anchoredPos, markerSize, thresholdConfig.MarkerColor);
             bar.AddForegrounds(marker);
         }
@@ -182,7 +182,7 @@ namespace DelvUI.Interface.Bars
             bool[]? chunksToGlow = null)
         {
             BarHud[] bars = new BarHud[chunks.Length];
-            Vector2 pos = Utils.GetAnchoredPosition(config.Position, config.Size, config.Anchor);
+            Vector2 pos = GetLocalAnchoredPosition(config.Position, config.Size, config.Anchor);
 
             for (int i = 0; i < chunks.Length; i++)
             {
@@ -395,14 +395,35 @@ namespace DelvUI.Interface.Bars
             Vector2 fillSize = fillDirection.IsHorizontal() ? new(size.X * fillPercent, size.Y) : new(size.X, size.Y * fillPercent);
             if (fillDirection == BarDirection.Left)
             {
-                fillPos = Utils.GetAnchoredPosition(new(size.X, 0), fillSize, DrawAnchor.TopRight);
+                // Relative to the bar rect; BarHud applies global scale when drawing.
+                fillPos = new Vector2(size.X - fillSize.X, 0);
             }
             else if (fillDirection == BarDirection.Up)
             {
-                fillPos = Utils.GetAnchoredPosition(new(0, size.Y), fillSize, DrawAnchor.BottomLeft);
+                fillPos = new Vector2(0, size.Y - fillSize.Y);
             }
 
             return new Rect(pos + fillPos, fillSize, color);
+        }
+
+        /// <summary>
+        /// Anchor math for bar-local rects. Global scale is applied once when BarHud draws.
+        /// </summary>
+        private static Vector2 GetLocalAnchoredPosition(Vector2 position, Vector2 size, DrawAnchor anchor)
+        {
+            return anchor switch
+            {
+                DrawAnchor.Center => position - size / 2f,
+                DrawAnchor.Left => position + new Vector2(0, -size.Y / 2f),
+                DrawAnchor.Right => position + new Vector2(-size.X, -size.Y / 2f),
+                DrawAnchor.Top => position + new Vector2(-size.X / 2f, 0),
+                DrawAnchor.TopLeft => position,
+                DrawAnchor.TopRight => position + new Vector2(-size.X, 0),
+                DrawAnchor.Bottom => position + new Vector2(-size.X / 2f, -size.Y),
+                DrawAnchor.BottomLeft => position + new Vector2(0, -size.Y),
+                DrawAnchor.BottomRight => position + new Vector2(-size.X, -size.Y),
+                _ => position
+            };
         }
 
         public static ThresholdConfig GetThresholdConfigForChunk(ChunkedProgressBarConfig config, int chunk, int chunks, float min, float max) =>

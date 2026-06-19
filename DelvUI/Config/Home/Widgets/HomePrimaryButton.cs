@@ -18,23 +18,58 @@ namespace DelvUI.Config.Home.Widgets
             Vector2 size,
             string? tooltip = null,
             bool handleInput = true,
-            string? buttonId = null)
+            string? buttonId = null,
+            bool advanceLayout = true)
         {
             Vector2 startPos = ImGui.GetCursorPos();
-            Vector2 cursor = ImGui.GetCursorScreenPos();
-            bool isHovered = ImGui.IsMouseHoveringRect(cursor, cursor + size);
-            ImDrawListPtr drawList = ImGui.GetWindowDrawList();
+            Vector2 screenPos = ImGui.GetCursorScreenPos();
+            string hitId = buttonId ?? $"##homePrimaryCta_{label}";
 
+            if (handleInput)
+            {
+                ImGui.InvisibleButton(hitId, size);
+            }
+            else
+            {
+                ImGui.Dummy(size);
+            }
+
+            bool isHovered = handleInput && ImGui.IsItemHovered();
+            DrawVisual(screenPos, label, subtitle, icon, size, ImGui.GetWindowDrawList(), isHovered);
+
+            bool clicked = handleInput && ImGui.IsItemClicked();
+            if (isHovered && tooltip != null)
+            {
+                ImGuiHelper.SetTooltip(tooltip);
+            }
+
+            if (advanceLayout)
+            {
+                ImGui.SetCursorPos(startPos + new Vector2(0f, size.Y + 8f));
+            }
+
+            return clicked;
+        }
+
+        private static void DrawVisual(
+            Vector2 screenPos,
+            string label,
+            string subtitle,
+            FontAwesomeIcon icon,
+            Vector2 size,
+            ImDrawListPtr drawList,
+            bool isHovered)
+        {
             Vector4 bg = isHovered
                 ? new Vector4(HomeUiStyle.Accent.X, HomeUiStyle.Accent.Y, HomeUiStyle.Accent.Z, 0.1f)
                 : HomeUiStyle.PanelBg;
             Vector4 border = isHovered ? HomeUiStyle.Accent : HomeUiStyle.AccentGlow;
             float borderThickness = isHovered ? 2.5f : 2f;
 
-            drawList.AddRectFilled(cursor, cursor + size, ImGui.ColorConvertFloat4ToU32(bg), 8f);
+            drawList.AddRectFilled(screenPos, screenPos + size, ImGui.ColorConvertFloat4ToU32(bg), 8f);
             drawList.AddRect(
-                cursor,
-                cursor + size,
+                screenPos,
+                screenPos + size,
                 ImGui.ColorConvertFloat4ToU32(border),
                 8f,
                 ImDrawFlags.RoundCornersAll,
@@ -56,7 +91,7 @@ namespace DelvUI.Config.Home.Widgets
                 ? titleSize.Y + SubtitleGap + captionSize.Y
                 : titleSize.Y;
 
-            Vector2 contentOrigin = cursor + new Vector2(
+            Vector2 contentOrigin = screenPos + new Vector2(
                 (size.X - contentWidth) * 0.5f,
                 (size.Y - contentHeight) * 0.5f);
 
@@ -79,25 +114,6 @@ namespace DelvUI.Config.Home.Widgets
                     ImGui.ColorConvertFloat4ToU32(captionColor),
                     caption);
             }
-
-            string hitId = buttonId ?? $"##homePrimaryCta_{label}";
-            ImGui.SetCursorPos(startPos);
-            ImGui.InvisibleButton(hitId, size);
-
-            if (handleInput)
-            {
-                bool clicked = ImGui.IsItemClicked();
-                if (ImGui.IsItemHovered() && tooltip != null)
-                {
-                    ImGuiHelper.SetTooltip(tooltip);
-                }
-
-                ImGui.SetCursorPos(startPos + new Vector2(0f, size.Y + 8f));
-                return clicked;
-            }
-
-            ImGui.SetCursorPos(startPos + new Vector2(0f, size.Y + 8f));
-            return false;
         }
     }
 }

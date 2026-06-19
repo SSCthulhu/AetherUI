@@ -1,4 +1,4 @@
-﻿using Dalamud.Game.ClientState.JobGauge.Types;
+using Dalamud.Game.ClientState.JobGauge.Types;
 using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Game.ClientState.Objects.Types;
 using DelvUI.Config;
@@ -56,22 +56,22 @@ namespace DelvUI.Interface.Jobs
         {
             if (Config.RattlingCoilGauge.Enabled)
             {
-                DrawRattlingCoilGauge(origin + Config.Position, player);
+                DrawRattlingCoilGauge(GlobalHudScaleHelper.ApplyOriginOffset(origin, Config.Position), player);
             }
 
             if (Config.Vipersight.Enabled)
             {
-                DrawVipersightBar(origin + Config.Position, player);
+                DrawVipersightBar(GlobalHudScaleHelper.ApplyOriginOffset(origin, Config.Position), player);
             }
 
             if (Config.SerpentOfferings.Enabled)
             {
-                DrawSerpentOfferingsBar(origin + Config.Position, player);
+                DrawSerpentOfferingsBar(GlobalHudScaleHelper.ApplyOriginOffset(origin, Config.Position), player);
             }
 
             if (Config.AnguineTribute.Enabled)
             {
-                DrawAnguineTributeGauge(origin + Config.Position, player);
+                DrawAnguineTributeGauge(GlobalHudScaleHelper.ApplyOriginOffset(origin, Config.Position), player);
             }
         }
 

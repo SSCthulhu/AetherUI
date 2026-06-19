@@ -327,10 +327,12 @@ namespace DelvUI.Interface.GeneralElements
 
         public (Vector2, Vector2) GetArea(Vector2 pos, Vector2 size)
         {
-            if (!Enabled) { return (pos, pos + size); }
+            Vector2 scaledSize = GlobalHudScaleHelper.Scale(size);
 
-            Vector2 start = pos + TopLeftOffset;
-            Vector2 end = pos + size + BottomRightOffset;
+            if (!Enabled) { return (pos, pos + scaledSize); }
+
+            Vector2 start = pos + GlobalHudScaleHelper.Scale(TopLeftOffset);
+            Vector2 end = pos + scaledSize + GlobalHudScaleHelper.Scale(BottomRightOffset);
 
             return (start, end);
         }

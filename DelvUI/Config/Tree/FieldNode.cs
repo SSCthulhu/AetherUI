@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using System.Reflection;
+using DelvUI.Config;
 using DelvUI.Config.Attributes;
 using DelvUI.Helpers;
 using Dalamud.Bindings.ImGui;
@@ -211,8 +212,24 @@ namespace DelvUI.Config.Tree
                     FontAttribute.SetNestDepth(_currentDepth);
                 }
 
-                changed |= _configAttribute.Draw(field, ConfigObject, ID, CollapsingHeader);
+                if (!_configAttribute.Draw(field, ConfigObject, ID, CollapsingHeader))
+                {
+                    return;
+                }
+
+                if (IsPresetExempt(field))
+                {
+                    ConfigurationManager.Instance.ForceNeedsSave();
+                    return;
+                }
+
+                changed = true;
             }
+        }
+
+        private static bool IsPresetExempt(FieldInfo field)
+        {
+            return Attribute.IsDefined(field, typeof(PresetExemptAttribute));
         }
     }
 

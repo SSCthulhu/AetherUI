@@ -1,4 +1,4 @@
-﻿using Dalamud.Game.ClientState.Objects.Types;
+using Dalamud.Game.ClientState.Objects.Types;
 using DelvUI.Config;
 using DelvUI.Enums;
 using DelvUI.Helpers;
@@ -122,10 +122,12 @@ namespace DelvUI.Interface.Party
                 bar.Visible = true;
 
                 // anchor and position
-                CalculateBarPosition(origin, Size, out var x, out var y);
+                CalculateBarPosition(origin, GlobalHudScaleHelper.Scale(Size), out var x, out var y);
+                Vector2 scaledBarSize = GlobalHudScaleHelper.Scale(Configs.HealthBar.Size);
+                Vector2 scaledPadding = GlobalHudScaleHelper.Scale(Configs.HealthBar.Padding);
                 bar.Position = new Vector2(
-                    x + Configs.HealthBar.Size.X * col + (Configs.HealthBar.Padding.X - 1) * col,
-                    y + Configs.HealthBar.Size.Y * row + (Configs.HealthBar.Padding.Y - 1) * row
+                    x + scaledBarSize.X * col + (scaledPadding.X - GlobalHudScaleHelper.Scale(1f)) * col,
+                    y + scaledBarSize.Y * row + (scaledPadding.Y - GlobalHudScaleHelper.Scale(1f)) * row
                 );
 
                 // layout
@@ -221,16 +223,16 @@ namespace DelvUI.Interface.Party
 
         private void UpdateLayout(Vector2 origin)
         {
-            Vector2 contentStartPos = origin + Config.Position;
+            Vector2 contentStartPos = GlobalHudScaleHelper.ApplyOriginOffset(origin, Config.Position);
             uint count = PartyManager.Instance.MemberCount;
 
             if (_layoutDirty || _memberCount != count)
             {
                 _layoutInfo = LayoutHelper.CalculateLayout(
-                    Size,
-                    Configs.HealthBar.Size,
+                    GlobalHudScaleHelper.Scale(Size),
+                    GlobalHudScaleHelper.Scale(Configs.HealthBar.Size),
                     count,
-                    Configs.HealthBar.Padding,
+                    GlobalHudScaleHelper.Scale(Configs.HealthBar.Padding),
                     Config.FillRowsFirst
                 );
                 UpdateBars(contentStartPos);
@@ -258,8 +260,8 @@ namespace DelvUI.Interface.Party
                 AddDrawAction(StrataLevel.LOWEST, () =>
                 {
                     ImDrawListPtr drawList = ImGui.GetWindowDrawList();
-                    Vector2 bgPos = origin + Config.Position - _contentMargin;
-                    Vector2 bgSize = Size + _contentMargin * 2;
+                    Vector2 bgPos = GlobalHudScaleHelper.ApplyOriginOffset(origin, Config.Position) - GlobalHudScaleHelper.Scale(_contentMargin);
+                    Vector2 bgSize = GlobalHudScaleHelper.Scale(Size) + GlobalHudScaleHelper.Scale(_contentMargin) * 2;
 
                     drawList.AddRectFilled(bgPos, bgPos + bgSize, 0x66000000);
                     drawList.AddRect(bgPos, bgPos + bgSize, 0x66FFFFFF);
@@ -403,7 +405,7 @@ namespace DelvUI.Interface.Party
             AddDrawAction(Config.ShowPartyTitleConfig.StrataLevel, () =>
             {
                 Config.ShowPartyTitleConfig.SetText(PartyManager.Instance.PartyTitle);
-                _titleLabelHud.Draw(origin + Config.Position);
+                _titleLabelHud.Draw(GlobalHudScaleHelper.ApplyOriginOffset(origin, Config.Position));
             });
         }
     }

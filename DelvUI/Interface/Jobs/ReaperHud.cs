@@ -1,4 +1,4 @@
-﻿using Dalamud.Game.ClientState.JobGauge.Types;
+using Dalamud.Game.ClientState.JobGauge.Types;
 using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Game.ClientState.Objects.Types;
 using DelvUI.Config;
@@ -57,7 +57,7 @@ namespace DelvUI.Interface.Jobs
 
         public override void DrawJobHud(Vector2 origin, IPlayerCharacter player)
         {
-            Vector2 pos = origin + Config.Position;
+            Vector2 pos = GlobalHudScaleHelper.ApplyOriginOffset(origin, Config.Position);
             RPRGauge gauge = Plugin.JobGauges.Get<RPRGauge>();
 
             if (Config.DeathsDesignBar.Enabled)

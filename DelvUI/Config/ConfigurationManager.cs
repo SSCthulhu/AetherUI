@@ -661,6 +661,9 @@ namespace DelvUI.Config
                 hudLayoutSnapshot.CopyBindingsFrom(preservedHudLayoutSettings);
             }
 
+            HUDOptionsConfig? preservedHudOptions = GetConfigObject<HUDOptionsConfig>();
+            float preservedGlobalHudScale = preservedHudOptions?.GlobalHudScale ?? GlobalHudScaleHelper.DefaultScale;
+
             if (!ImportProfileNonCached(rawString, out BaseNode? loadedNode) || loadedNode == null)
             {
                 return false;
@@ -676,6 +679,12 @@ namespace DelvUI.Config
             PresetHudLayoutSettingsConfig? restoredHudLayoutSettings =
                 GetConfigObject<PresetHudLayoutSettingsConfig>();
             restoredHudLayoutSettings?.CopyBindingsFrom(hudLayoutSnapshot);
+
+            HUDOptionsConfig? restoredHudOptions = GetConfigObject<HUDOptionsConfig>();
+            if (restoredHudOptions != null)
+            {
+                restoredHudOptions.GlobalHudScale = preservedGlobalHudScale;
+            }
 
             PerformV2Migration();
             InitializeHomeFeatureSettings();

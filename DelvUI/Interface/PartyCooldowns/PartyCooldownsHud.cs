@@ -222,7 +222,7 @@ namespace DelvUI.Interface.PartyCooldowns
                     // icon
                     if (_barConfig.ShowIcon)
                     {
-                        Vector2 iconPos = origin + new Vector2(pos.X - size.Y + 1, pos.Y);
+                        Vector2 iconPos = GlobalHudScaleHelper.ApplyOriginOffset(origin, new Vector2(pos.X - size.Y + 1, pos.Y));
                         Vector2 iconSize = new Vector2(size.Y);
                         bool recharging = effectTime == 0 && cooldownTime > 0;
                         bool shouldDrawCooldown = ClipRectsHelper.Instance.GetClipRectForArea(iconPos, iconSize) == null;
@@ -263,7 +263,7 @@ namespace DelvUI.Interface.PartyCooldowns
                         character = player;
                     }
 
-                    Vector2 labelPos = origin + pos;
+                    Vector2 labelPos = GlobalHudScaleHelper.ApplyOriginOffset(origin, pos);
                     AddDrawAction(_barConfig.NameLabel.StrataLevel, () =>
                     {
                         PluginConfigColor realColor = _barConfig.NameLabel.Color;
@@ -302,7 +302,7 @@ namespace DelvUI.Interface.PartyCooldowns
                     });
 
                     // tooltip
-                    pos = origin + new Vector2(pos.X - size.Y + 1, pos.Y);
+                    pos = GlobalHudScaleHelper.ApplyOriginOffset(origin, new Vector2(pos.X - size.Y + 1, pos.Y));
                     if (Config.ShowTooltips && ImGui.IsMouseHoveringRect(pos, pos + _barConfig.Size))
                     {
                         TooltipsHelper.Instance.ShowTooltipOnCursor(

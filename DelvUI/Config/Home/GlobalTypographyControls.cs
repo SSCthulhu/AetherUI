@@ -1,3 +1,4 @@
+using DelvUI.Config;
 using DelvUI.Config.Home.Widgets;
 using DelvUI.Helpers;
 using DelvUI.Interface.GeneralElements;
@@ -12,8 +13,8 @@ namespace DelvUI.Config.Home
     public static class GlobalTypographyControls
     {
         private const float CompactComboWidthRatio = 0.82f;
-        private const float CompactSectionSpacing = 10f;
-        private const float CompactVerticalInset = 16f;
+        private const float CompactSectionSpacing = 3f;
+        private const float CompactVerticalInset = 4f;
 
         public static float GetCompactLeftOffset(float availWidth)
         {
@@ -39,7 +40,8 @@ namespace DelvUI.Config.Home
 
             return fontRow + sectionSpacing
                 + fontRow + sectionSpacing
-                + frame + 10f * scale + itemSpacing;
+                + frame + 6f * scale + sectionSpacing
+                + (textLine + itemSpacing + frame);
         }
 
         public static float GetHomePanelHeight()
@@ -51,7 +53,7 @@ namespace DelvUI.Config.Home
             return EstimateHomePanelBodyHeight() + inset * 2f + windowPadding + 8f * scale;
         }
 
-        public static bool DrawHomePanel(FontsConfig fontsConfig, ref bool changed)
+        public static bool DrawHomePanel(FontsConfig fontsConfig, HUDOptionsConfig hudOptionsConfig, ref bool changed)
         {
             if (fontsConfig.Fonts.Count == 0)
             {
@@ -62,14 +64,14 @@ namespace DelvUI.Config.Home
             float inset = CompactVerticalInset * ImGuiHelpers.GlobalScale;
             ImGui.Dummy(new Vector2(0f, inset));
 
-            bool panelChanged = Draw(fontsConfig, ref changed, compact: true);
+            bool panelChanged = Draw(fontsConfig, hudOptionsConfig, ref changed, compact: true);
 
             ImGui.Dummy(new Vector2(0f, inset));
 
             return panelChanged;
         }
 
-        public static bool Draw(FontsConfig fontsConfig, ref bool changed, bool compact = false)
+        public static bool Draw(FontsConfig fontsConfig, HUDOptionsConfig hudOptionsConfig, ref bool changed, bool compact = false)
         {
             if (fontsConfig.Fonts.Count == 0)
             {
@@ -89,7 +91,8 @@ namespace DelvUI.Config.Home
             int globalNumericFontIndex = ResolveFontIndex(fontsConfig.GlobalNumericFontKey, fontsConfig, styleNames);
 
             bool comboChanged = false;
-            bool applyChanged;
+            bool applyChanged = false;
+            bool panelChanged = false;
 
             if (compact)
             {
@@ -100,6 +103,8 @@ namespace DelvUI.Config.Home
                 comboChanged |= DrawCompactLabeledCombo("GLOBAL NUMERIC FONT", "##homeGlobalNumericFont", ref globalNumericFontIndex, selectableFontStyles);
                 ImGui.Dummy(new Vector2(0f, sectionSpacing));
                 applyChanged = fontsConfig.DrawApplyGlobalFontsButton(ref changed, centered: true, homeAccentStyle: true);
+                ImGui.Dummy(new Vector2(0f, sectionSpacing));
+                panelChanged |= DrawCompactGlobalHudScale(hudOptionsConfig, ref changed);
             }
             else
             {
@@ -115,6 +120,8 @@ namespace DelvUI.Config.Home
 
                 ImGui.Spacing();
                 applyChanged = fontsConfig.DrawApplyGlobalFontsButton(ref changed);
+                ImGui.Spacing();
+                panelChanged |= DrawStandardGlobalHudScale(hudOptionsConfig, ref changed);
             }
 
             if (comboChanged)
@@ -124,7 +131,94 @@ namespace DelvUI.Config.Home
                 changed = true;
             }
 
-            return comboChanged | applyChanged;
+            return comboChanged | applyChanged | panelChanged;
+        }
+
+        private static bool DrawCompactGlobalHudScale(HUDOptionsConfig hudOptionsConfig, ref bool changed)
+        {
+            float availWidth = ImGui.GetContentRegionAvail().X;
+            float comboWidth = availWidth * CompactComboWidthRatio;
+            float startX = ImGui.GetCursorPosX() + GetCompactLeftOffset(availWidth);
+            float scale = hudOptionsConfig.GlobalHudScale;
+            float uiScale = ImGuiHelpers.GlobalScale;
+            const float inputWidth = 56f;
+            float scaledInputWidth = inputWidth * uiScale;
+            float itemSpacing = ImGui.GetStyle().ItemSpacing.X;
+            float sliderWidth = Math.Max(0f, comboWidth - scaledInputWidth - itemSpacing);
+
+            ImGui.SetCursorPosX(startX);
+            ImGui.PushStyleColor(ImGuiCol.Text, HomeUiStyle.Gold);
+            ImGui.Text("GLOBAL HUD SCALE");
+            ImGui.PopStyleColor();
+
+            ImGui.SetCursorPosX(startX);
+            PushHomeSliderChrome();
+            ImGui.PushItemWidth(sliderWidth);
+            bool sliderChanged = ImGui.SliderFloat(
+                "##homeGlobalHudScale",
+                ref scale,
+                GlobalHudScaleHelper.MinScale,
+                GlobalHudScaleHelper.MaxScale,
+                string.Empty);
+            ImGui.PopItemWidth();
+            PopHomeSliderChrome();
+
+            ImGui.SameLine(0f, itemSpacing);
+            PushHomeFieldChrome();
+            ImGui.PushItemWidth(scaledInputWidth);
+            bool inputChanged = ImGui.InputFloat("##homeGlobalHudScaleInput", ref scale, 0f, 0f, "%.2f");
+            ImGui.PopItemWidth();
+            PopHomeFieldChrome();
+
+            return TryApplyGlobalHudScale(hudOptionsConfig, ref scale, sliderChanged || inputChanged, ref changed);
+        }
+
+        private static bool DrawStandardGlobalHudScale(HUDOptionsConfig hudOptionsConfig, ref bool changed)
+        {
+            float scale = hudOptionsConfig.GlobalHudScale;
+            float uiScale = ImGuiHelpers.GlobalScale;
+            const float inputWidth = 56f;
+            float scaledInputWidth = inputWidth * uiScale;
+            float itemSpacing = ImGui.GetStyle().ItemSpacing.X;
+            float sliderWidth = Math.Max(0f, ImGui.GetContentRegionAvail().X - scaledInputWidth - itemSpacing);
+
+            ImGui.PushItemWidth(sliderWidth);
+            bool sliderChanged = ImGui.SliderFloat(
+                "Global HUD Scale",
+                ref scale,
+                GlobalHudScaleHelper.MinScale,
+                GlobalHudScaleHelper.MaxScale,
+                string.Empty);
+            ImGui.PopItemWidth();
+
+            ImGui.SameLine(0f, itemSpacing);
+            ImGui.PushItemWidth(scaledInputWidth);
+            bool inputChanged = ImGui.InputFloat("##globalHudScaleInput", ref scale, 0f, 0f, "%.2f");
+            ImGui.PopItemWidth();
+
+            return TryApplyGlobalHudScale(hudOptionsConfig, ref scale, sliderChanged || inputChanged, ref changed);
+        }
+
+        private static bool TryApplyGlobalHudScale(
+            HUDOptionsConfig hudOptionsConfig,
+            ref float scale,
+            bool edited,
+            ref bool changed)
+        {
+            if (!edited)
+            {
+                return false;
+            }
+
+            scale = Math.Clamp(scale, GlobalHudScaleHelper.MinScale, GlobalHudScaleHelper.MaxScale);
+            if (Math.Abs(hudOptionsConfig.GlobalHudScale - scale) < 0.0001f)
+            {
+                return false;
+            }
+
+            hudOptionsConfig.GlobalHudScale = scale;
+            ConfigurationManager.Instance.ForceNeedsSave();
+            return false;
         }
 
         private static string[] BuildSelectableFontStyles(FontsConfig fontsConfig, out string[] styleNames)
@@ -234,7 +328,7 @@ namespace DelvUI.Config.Home
             return changed;
         }
 
-        private static void PushHomeComboChrome()
+        private static void PushHomeFieldChrome()
         {
             Vector4 transparent = Vector4.Zero;
             float scale = ImGuiHelpers.GlobalScale;
@@ -242,19 +336,43 @@ namespace DelvUI.Config.Home
             ImGui.PushStyleColor(ImGuiCol.FrameBg, transparent);
             ImGui.PushStyleColor(ImGuiCol.FrameBgHovered, transparent);
             ImGui.PushStyleColor(ImGuiCol.FrameBgActive, transparent);
-            ImGui.PushStyleColor(ImGuiCol.Button, transparent);
-            ImGui.PushStyleColor(ImGuiCol.ButtonHovered, transparent);
-            ImGui.PushStyleColor(ImGuiCol.ButtonActive, transparent);
             ImGui.PushStyleColor(ImGuiCol.Border, HomeUiStyle.PanelBorder);
             ImGui.PushStyleVar(ImGuiStyleVar.FrameBorderSize, 1f);
             ImGui.PushStyleVar(ImGuiStyleVar.FrameRounding, 6f);
             ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, new Vector2(10f * scale, framePadding.Y));
         }
 
-        private static void PopHomeComboChrome()
+        private static void PopHomeFieldChrome()
         {
             ImGui.PopStyleVar(3);
-            ImGui.PopStyleColor(7);
+            ImGui.PopStyleColor(4);
+        }
+
+        private static void PushHomeComboChrome()
+        {
+            ImGui.PushStyleColor(ImGuiCol.Button, Vector4.Zero);
+            ImGui.PushStyleColor(ImGuiCol.ButtonHovered, Vector4.Zero);
+            ImGui.PushStyleColor(ImGuiCol.ButtonActive, Vector4.Zero);
+            PushHomeFieldChrome();
+        }
+
+        private static void PopHomeComboChrome()
+        {
+            PopHomeFieldChrome();
+            ImGui.PopStyleColor(3);
+        }
+
+        private static void PushHomeSliderChrome()
+        {
+            PushHomeFieldChrome();
+            ImGui.PushStyleColor(ImGuiCol.SliderGrab, HomeUiStyle.Gold);
+            ImGui.PushStyleColor(ImGuiCol.SliderGrabActive, HomeUiStyle.Gold);
+        }
+
+        private static void PopHomeSliderChrome()
+        {
+            ImGui.PopStyleColor(2);
+            PopHomeFieldChrome();
         }
     }
 }

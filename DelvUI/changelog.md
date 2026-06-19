@@ -1,3 +1,18 @@
+# 2.8.3.0
+- Added Global HUD Scale slider under Home > Global Style to resize movable HUD elements (excluding nameplates) at runtime without changing saved layout values.
+- Global HUD Scale default (1.00) now renders at a smaller baseline; display value is multiplied by 0.5 internally so 1.00 matches the previous 0.50 effective size.
+- Global HUD Scale maximum increased to 2.50 (effective 1.25).
+- Global HUD Scale is preserved when applying Home presets; it is a user preference independent of preset layout.
+- Changing Global HUD Scale no longer switches the active Home preset to Custom.
+- Added Keep HUD elements on screen (default on) to prevent movable HUD elements from rendering outside the game window when the viewport size changes.
+- Keep HUD elements on screen now also reacts to Global HUD Scale changes and pins elements to the viewport edge without oscillating when scale increases.
+- Keep HUD elements on screen clamps parent unit frames as a group with their anchored castbars, buffs, and resource bars so attached pieces no longer shift independently at screen edges.
+- Global HUD Scale changes now clamp visually at draw time without saving position offsets, so returning to a previous scale restores the original layout.
+- HUD Editor drag areas now include the same on-screen clamp offset as gameplay, keeping editor boxes aligned with live HUD positions.
+- Fixed HUD Editor drag areas applying global scale twice, which misaligned boxes (especially the minimap) from live HUD rendering at non-default scale.
+- Fixed HUD Editor box sizing using fully scaled bounds and stopped rewriting layout positions unless the user is actively dragging, preventing drift when opening or closing the editor.
+- Fixed bar labels (unit frame health text, etc.) double-applying global HUD scale to parent size, which offset text at lower scale values.
+
 # 2.8.2.0
 - Added per-preset native HUD layout attachments on the Home preset tabs (gear icon + layout number badge, Custom excluded).
 - Preset HUD layout bindings persist across preset apply and are saved independently from shipped `.delvui` preset data.

@@ -84,10 +84,10 @@ namespace DelvUI.Interface.StatusEffects
             }
 
             _layoutInfo = LayoutHelper.CalculateLayout(
-                Config.Size,
-                Config.IconConfig.Size,
+                GlobalHudScaleHelper.Scale(Config.Size),
+                GlobalHudScaleHelper.Scale(Config.IconConfig.Size),
                 count,
-                Config.IconPadding,
+                GlobalHudScaleHelper.Scale(Config.IconPadding),
                 LayoutHelper.GetFillsRowsFirst(Config.FillRowsFirst, LayoutHelper.GrowthDirectionsFromIndex(Config.Directions))
             );
 
@@ -323,9 +323,10 @@ namespace DelvUI.Interface.StatusEffects
 
             // area
             GrowthDirections growthDirections = LayoutHelper.GrowthDirectionsFromIndex(Config.Directions);
+            Vector2 scaledListSize = GlobalHudScaleHelper.Scale(Config.Size);
             Vector2 position = origin + GetAnchoredPosition(Config.Position, Config.Size, DrawAnchor.TopLeft);
-            Vector2 areaPos = LayoutHelper.CalculateStartPosition(position, Config.Size, growthDirections);
-            Vector2 margin = new Vector2(14, 10);
+            Vector2 areaPos = LayoutHelper.CalculateStartPosition(position, scaledListSize, growthDirections);
+            Vector2 margin = GlobalHudScaleHelper.Scale(new Vector2(14, 10));
 
             ImDrawListPtr drawList = ImGui.GetWindowDrawList();
 
@@ -347,12 +348,17 @@ namespace DelvUI.Interface.StatusEffects
                 growthDirections,
                 count,
                 position,
-                Config.Size,
-                Config.IconConfig.Size,
-                Config.IconPadding,
+                scaledListSize,
+                GlobalHudScaleHelper.Scale(Config.IconConfig.Size),
+                GlobalHudScaleHelper.Scale(Config.IconPadding),
                 LayoutHelper.GetFillsRowsFirst(Config.FillRowsFirst, growthDirections),
                 _layoutInfo
             );
+
+            Vector2 scaledIconSize = GlobalHudScaleHelper.Scale(Config.IconConfig.Size);
+            Vector2 labelParentSize = Config.IconConfig.Size;
+            float scaledShadowOffset = GlobalHudScaleHelper.Scale(Config.IconConfig.ShadowConfig?.Offset ?? 0f);
+            float scaledShadowThickness = GlobalHudScaleHelper.Scale(Config.IconConfig.ShadowConfig?.Thickness ?? 0f);
 
             // window
             // imgui clips the left and right borders inside windows for some reason
@@ -367,7 +373,7 @@ namespace DelvUI.Interface.StatusEffects
                     // area
                     if (Config.Preview)
                     {
-                        drawList.AddRectFilled(areaPos, areaPos + Config.Size, 0x88000000);
+                        drawList.AddRectFilled(areaPos, areaPos + scaledListSize, 0x88000000);
                     }
 
                     for (var i = 0; i < count; i++)
@@ -378,23 +384,24 @@ namespace DelvUI.Interface.StatusEffects
                         // shadow
                         if (Config.IconConfig.ShadowConfig! != null && Config.IconConfig.ShadowConfig.Enabled)
                         {
+                            Vector2 shadowOffset = new Vector2(scaledShadowOffset);
                             // Right Side
-                            drawList.AddRectFilled(iconPos + new Vector2(Config.IconConfig.Size.X, Config.IconConfig.ShadowConfig.Offset), iconPos + Config.IconConfig.Size + new Vector2(Config.IconConfig.ShadowConfig.Offset, Config.IconConfig.ShadowConfig.Offset) + new Vector2(Config.IconConfig.ShadowConfig.Thickness - 1, Config.IconConfig.ShadowConfig.Thickness - 1), Config.IconConfig.ShadowConfig.Color.Base);
+                            drawList.AddRectFilled(iconPos + new Vector2(scaledIconSize.X, shadowOffset.Y), iconPos + scaledIconSize + shadowOffset + new Vector2(scaledShadowThickness - 1f, scaledShadowThickness - 1f), Config.IconConfig.ShadowConfig.Color.Base);
 
                             // Bottom Size
-                            drawList.AddRectFilled(iconPos + new Vector2(Config.IconConfig.ShadowConfig.Offset, Config.IconConfig.Size.Y), iconPos + Config.IconConfig.Size + new Vector2(Config.IconConfig.ShadowConfig.Offset, Config.IconConfig.ShadowConfig.Offset) + new Vector2(Config.IconConfig.ShadowConfig.Thickness - 1, Config.IconConfig.ShadowConfig.Thickness - 1), Config.IconConfig.ShadowConfig.Color.Base);
+                            drawList.AddRectFilled(iconPos + new Vector2(shadowOffset.X, scaledIconSize.Y), iconPos + scaledIconSize + shadowOffset + new Vector2(scaledShadowThickness - 1f, scaledShadowThickness - 1f), Config.IconConfig.ShadowConfig.Color.Base);
                         }
 
                         // icon
                         var cropIcon = Config.IconConfig.CropIcon;
                         int stackCount = cropIcon ? 1 : statusEffectData.Data.MaxStacks > 0 ? statusEffectData.Status.Param : 0;
-                        DrawHelper.DrawIcon<LuminaStatus>(drawList, statusEffectData.Data, iconPos, Config.IconConfig.Size, false, cropIcon, stackCount);
+                        DrawHelper.DrawIcon<LuminaStatus>(drawList, statusEffectData.Data, iconPos, scaledIconSize, false, cropIcon, stackCount);
 
                         // border
                         var borderConfig = GetBorderConfig(statusEffectData);
                         if (borderConfig != null && cropIcon)
                         {
-                            drawList.AddRect(iconPos, iconPos + Config.IconConfig.Size, borderConfig.Color.Base, 0, ImDrawFlags.None, borderConfig.Thickness);
+                            drawList.AddRect(iconPos, iconPos + scaledIconSize, borderConfig.Color.Base, 0, ImDrawFlags.None, GlobalHudScaleHelper.Scale(borderConfig.Thickness));
                         }
 
                         // Draw dispell indicator above dispellable status effect on uncropped icons
@@ -403,10 +410,10 @@ namespace DelvUI.Interface.StatusEffects
                             var dispellIndicatorColor = new Vector4(141f / 255f, 206f / 255f, 229f / 255f, 100f / 100f);
                             // 24x32
                             drawList.AddRectFilled(
-                                           iconPos + new Vector2(Config.IconConfig.Size.X * .07f, Config.IconConfig.Size.Y * .07f),
-                                           iconPos + new Vector2(Config.IconConfig.Size.X * .93f, Config.IconConfig.Size.Y * .14f),
+                                           iconPos + scaledIconSize * new Vector2(.07f, .07f),
+                                           iconPos + scaledIconSize * new Vector2(.93f, .14f),
                                            ImGui.ColorConvertFloat4ToU32(dispellIndicatorColor),
-                                           8f
+                                           GlobalHudScaleHelper.Scale(8f)
                                        );
                         }
                     }
@@ -431,7 +438,7 @@ namespace DelvUI.Interface.StatusEffects
                     {
                         double duration = Math.Round(Math.Abs(statusEffectData.Status.RemainingTime));
                         Config.IconConfig.DurationLabelConfig.SetText(Utils.DurationToString(duration));
-                        _durationLabel.Draw(iconPos, Config.IconConfig.Size, character);
+                        _durationLabel.Draw(iconPos, labelParentSize, character);
                     });
                 }
 
@@ -444,12 +451,12 @@ namespace DelvUI.Interface.StatusEffects
                     AddDrawAction(Config.IconConfig.StacksLabelConfig.StrataLevel, () =>
                     {
                         Config.IconConfig.StacksLabelConfig.SetText($"{statusEffectData.Status.Param}");
-                        _stacksLabel.Draw(iconPos, Config.IconConfig.Size, character);
+                        _stacksLabel.Draw(iconPos, labelParentSize, character);
                     });
                 }
 
                 // tooltips / interaction
-                if (ImGui.IsMouseHoveringRect(iconPos, iconPos + Config.IconConfig.Size))
+                if (ImGui.IsMouseHoveringRect(iconPos, iconPos + scaledIconSize))
                 {
                     hoveringData = statusEffectData;
                 }
